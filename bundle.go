@@ -1,14 +1,11 @@
 package hariti
 
-type BundleType uint
-
-const (
-	BundleTypeGit BundleType = iota
+import (
+	"net/url"
 )
 
 type Bundle struct {
-	Id        string
-	Type      BundleType
-	Url       string
+	Name      string
+	URL       *url.URL
 	LocalPath string
 }
