@@ -57,6 +57,7 @@ func run() int {
 			return err
 		}
 		c.App.Metadata["hariti"] = har
+		c.App.Metadata["logger"] = log.New(c.App.ErrWriter, "", 0x0)
 		return nil
 	}
 
