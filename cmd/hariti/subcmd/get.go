@@ -17,7 +17,7 @@ func getAction(c *cli.Context) error {
 		go func(repository string) {
 			defer wg.Done()
 
-			if err := har.Get(repository); err != nil {
+			if err := har.Get(repository, c.Bool("update")); err != nil {
 				fmt.Printf("Error: %s\n", err)
 			}
 		}(arg)
@@ -32,7 +32,16 @@ func init() {
 		Name:      "get",
 		Usage:     "Get bundle from {repository}",
 		ArgsUsage: "{repository}...",
-		Flags:     []cli.Flag{},
-		Action:    getAction,
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:  "u, update",
+				Usage: "Update",
+			},
+			&cli.BoolFlag{
+				Name:  "v, verbose",
+				Usage: "Output verbosely",
+			},
+		},
+		Action: getAction,
 	})
 }

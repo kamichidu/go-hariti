@@ -44,10 +44,14 @@ func run() int {
 			Value:  defaultHaritiDirectory,
 		},
 	}
+	app.Writer = os.Stdout
+	app.ErrWriter = os.Stderr
 
 	app.Before = func(c *cli.Context) error {
 		har := hariti.NewHariti(&hariti.HaritiConfig{
 			Directory: c.String("directory"),
+			Writer:    c.App.Writer,
+			ErrWriter: c.App.ErrWriter,
 		})
 		if err := har.SetupEnv(); err != nil {
 			return err

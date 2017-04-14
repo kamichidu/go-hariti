@@ -1,8 +1,11 @@
 package hariti
 
 import (
+	"context"
 	"fmt"
 	"github.com/kr/pretty"
+	"io"
+	"log"
 	"net/url"
 	"os"
 	"path"
@@ -12,6 +15,8 @@ import (
 
 type HaritiConfig struct {
 	Directory string
+	Writer    io.Writer
+	ErrWriter io.Writer
 }
 
 type Hariti struct {
@@ -47,7 +52,7 @@ func (self *Hariti) SetupEnv() error {
 	return nil
 }
 
-func (self *Hariti) Get(repository string) error {
+func (self *Hariti) Get(repository string, updateFlag bool) error {
 	bundle, err := self.CreateRemoteBundle(repository)
 	if err != nil {
 		return err
@@ -58,7 +63,15 @@ func (self *Hariti) Get(repository string) error {
 	if vcs == nil {
 		return fmt.Errorf("Can't detect vcs type: %s", bundle.URL)
 	}
-	if err = vcs.Clone(bundle); err != nil {
+	ctx := &Context{
+		Context:   context.Background(),
+		Writer:    self.config.Writer,
+		ErrWriter: self.config.ErrWriter,
+		Logger:    log.New(self.config.ErrWriter, "", 0x0),
+	}
+	ctx.SetFlag("update", updateFlag)
+	ctx.SetFlag("verbose", false)
+	if err = vcs.Clone(ctx, bundle); err != nil {
 		return err
 	}
 
@@ -107,6 +120,7 @@ func (self *Hariti) CreateRemoteBundle(repository string) (*RemoteBundle, error)
 	} else if matched, err := path.Match("*/*", repository); matched || err != nil {
 		// generally form like "kamichidu/vim-hariti"
 		if err != nil {
+			// program error
 			panic(err)
 		}
 		bundle.URL, err = url.ParseRequestURI("https://" + path.Join("github.com", repository))
