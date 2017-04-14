@@ -6,8 +6,8 @@ import (
 
 type VCS interface {
 	CanHandle(u *url.URL) bool
-	Clone(bundle *Bundle) error
-	Remove(bundle *Bundle) error
+	Clone(bundle *RemoteBundle) error
+	Remove(bundle *RemoteBundle) error
 }
 
 var vcsList []VCS

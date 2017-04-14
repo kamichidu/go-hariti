@@ -48,7 +48,7 @@ func (self *Hariti) SetupEnv() error {
 }
 
 func (self *Hariti) Get(repository string) error {
-	bundle, err := self.CreateBundle(repository)
+	bundle, err := self.CreateRemoteBundle(repository)
 	if err != nil {
 		return err
 	}
@@ -91,10 +91,13 @@ func (self *Hariti) Rm() error {
 	return nil
 }
 
-func (self *Hariti) CreateBundle(repository string) (*Bundle, error) {
+func (self *Hariti) CreateRemoteBundle(repository string) (*RemoteBundle, error) {
 	var err error
 
-	bundle := &Bundle{}
+	bundle := &RemoteBundle{
+		Aliases:      make([]string, 0),
+		Dependencies: make([]Bundle, 0),
+	}
 	if strings.HasPrefix(repository, "https://") || strings.HasPrefix(repository, "http://") {
 		// fqdn like "https://github.com/kamichidu/vim-hariti"
 		bundle.URL, err = url.ParseRequestURI(repository)
@@ -121,5 +124,15 @@ func (self *Hariti) CreateBundle(repository string) (*Bundle, error) {
 	bundle.Name = path.Base(bundle.URL.String())
 	bundle.LocalPath = filepath.Join(self.config.Directory, "repositories", url.QueryEscape(bundle.URL.String()))
 
+	return bundle, nil
+}
+
+func (self *Hariti) CreateLocalBundle(repository string) (*LocalBundle, error) {
+	bundle := &LocalBundle{
+		Name:         filepath.Base(repository),
+		LocalPath:    repository,
+		Aliases:      make([]string, 0),
+		Dependencies: make([]Bundle, 0),
+	}
 	return bundle, nil
 }

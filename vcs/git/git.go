@@ -14,21 +14,7 @@ import (
 
 type Git struct{}
 
-func run(name string, args ...string) error {
-	fmt.Printf("%s %s", name, strings.Join(args, " "))
-	return nil
-	// var stderr bytes.Buffer
-	// cmd := exec.Command(name, args...)
-	// cmd.Stderr = &stderr
-	// err := cmd.Run()
-	// if err != nil {
-	// 	log.Printf("Got an error: %s\n---\n%s\n", err, stderr.String())
-	// 	return fmt.Errorf("%s\n%v", stderr.String(), err)
-	// }
-	// return nil
-}
-
-func (self *Git) Clone(bundle *hariti.Bundle) error {
+func (self *Git) Clone(bundle *hariti.RemoteBundle) error {
 	if info, err := os.Stat(bundle.LocalPath); err != nil {
 		log.Printf("Cloning %s to %s\n", bundle.URL, bundle.LocalPath)
 		cmd := exec.Command("git", "clone", "--recursive", bundle.URL.String(), bundle.LocalPath)
@@ -47,7 +33,7 @@ func (self *Git) Clone(bundle *hariti.Bundle) error {
 	}
 }
 
-func (self *Git) Remove(bundle *hariti.Bundle) error {
+func (self *Git) Remove(bundle *hariti.RemoteBundle) error {
 	return nil
 }
 
