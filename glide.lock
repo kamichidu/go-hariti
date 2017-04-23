@@ -1,10 +1,16 @@
-hash: 8f5fbe1005f59669bc3593652e2fedfec49690f0b4e5d06e9127082ecf77a1ce
-updated: 2017-04-14T00:48:50.863868717+09:00
+hash: a1065c67d7b790b1398c731d1c2bec1f643ba31ecbc79e8de24cce1bd2e33a43
+updated: 2017-04-23T20:41:00.332084183+09:00
 imports:
 - name: github.com/kr/pretty
   version: cfb55aafdaf3ec08f0db22699ab822c50091b1c4
 - name: github.com/kr/text
   version: 7cafcd837844e784b526369c9bce262804aebc60
+- name: github.com/pmezard/go-difflib
+  version: 792786c7400a136282c1664665ae0a8db921c6c2
+  subpackages:
+  - difflib
 - name: github.com/urfave/cli
   version: 0bdeddeeb0f650497d603c4ad7b20cfe685682f6
+- name: gopkg.in/yaml.v2
+  version: cd8b52f8269e0feb286dfeef29f8fe4d5b397e0b
 testImports: []

@@ -109,7 +109,7 @@ func (self *Hariti) CreateRemoteBundle(repository string) (*RemoteBundle, error)
 
 	bundle := &RemoteBundle{
 		Aliases:      make([]string, 0),
-		Dependencies: make([]Bundle, 0),
+		Dependencies: make([]*RemoteBundle, 0),
 	}
 	if strings.HasPrefix(repository, "https://") || strings.HasPrefix(repository, "http://") {
 		// fqdn like "https://github.com/kamichidu/vim-hariti"
@@ -143,10 +143,7 @@ func (self *Hariti) CreateRemoteBundle(repository string) (*RemoteBundle, error)
 
 func (self *Hariti) CreateLocalBundle(repository string) (*LocalBundle, error) {
 	bundle := &LocalBundle{
-		Name:         filepath.Base(repository),
-		LocalPath:    repository,
-		Aliases:      make([]string, 0),
-		Dependencies: make([]Bundle, 0),
+		LocalPath: repository,
 	}
 	return bundle, nil
 }

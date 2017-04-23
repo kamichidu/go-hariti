@@ -1,0 +1,33 @@
+---
+version: '0.0'
+
+bundles:
+  - name: Shougo/vimproc.vim
+    aliases: [vimproc]
+    build:
+      windows: mingw32-make -f make_mingw64.mak
+      mac:     make -f make_mac.mak
+      linux:   make -f make_unix.mak
+      all:     echo all
+
+  - name: Shougo/unite.vim
+    aliases: [unite]
+
+  - name: osyo-manga/vim-watchdogs
+    aliases: [watchdogs]
+    dependencies:
+      - { name: thinca/vim-quickrun }
+      - { name: Shougo/vimproc.vim }
+      - { name: osyo-manga/shabadou.vim }
+      - { name: jceb/vim-hier }
+      - { name: dannyob/quickfixstatus }
+
+  - name: godlygeek/csapprox
+    aliases: [csapprox]
+    enable-if: "!has('gui_running')"
+
+  - path: ~/sources/
+    includes:
+      - '*'
+    excludes:
+      - '**/*'
