@@ -1,4 +1,4 @@
-go-hariti [![Build Status](https://travis-ci.org/kamichidu/go-hariti.svg?branch=master)](https://travis-ci.org/kamichidu/go-hariti)
+go-hariti [![License](http://img.shields.io/badge/license-mit-blue.svg?style=flat-square)](https://raw.githubusercontent.com/kamichidu/go-hariti/master/LICENSE) [![Build Status](https://travis-ci.org/kamichidu/go-hariti.svg?branch=master)](https://travis-ci.org/kamichidu/go-hariti)
 ========================================================================================================================
 
 TODO Features
