@@ -19,3 +19,4 @@ test: generate
 deps:
 	go get -v golang.org/x/tools/cmd/goyacc
 	go get -v github.com/Masterminds/glide
+	glide install
