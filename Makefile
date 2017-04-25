@@ -1,4 +1,4 @@
-all: test
+all: test build
 
 build: generate
 	go build -ldflags "-X main.appVersion=$$(git describe --tags)" ./cmd/hariti/
