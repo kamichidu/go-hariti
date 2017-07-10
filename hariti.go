@@ -54,21 +54,24 @@ func (self *Hariti) SetupManagedDirectory() error {
 }
 
 func (self *Hariti) Get(repository string, update bool, enabled bool) error {
-	bundle, err := self.CreateRemoteBundle(repository)
+	bundle, err := self.CreateBundle(repository)
 	if err != nil {
 		return err
 	}
 
-	vcs := DetectVCS(bundle.URL)
-	if vcs == nil {
-		return fmt.Errorf("Can't detect vcs type: %s", bundle.URL)
-	}
-	ctx := context.Background()
-	ctx = WithWriter(ctx, self.config.Writer)
-	ctx = WithErrWriter(ctx, self.config.ErrWriter)
-	ctx = WithLogger(ctx, log.New(self.config.ErrWriter, "", 0x0))
-	if err = vcs.Clone(ctx, bundle, update); err != nil {
-		return err
+	// when bundle is a local bundle, no need to clone it
+	if rbundle, ok := bundle.(*RemoteBundle); ok {
+		vcs := DetectVCS(rbundle.URL)
+		if vcs == nil {
+			return fmt.Errorf("Can't detect vcs type: %s", rbundle.URL)
+		}
+		ctx := context.Background()
+		ctx = WithWriter(ctx, self.config.Writer)
+		ctx = WithErrWriter(ctx, self.config.ErrWriter)
+		ctx = WithLogger(ctx, log.New(self.config.ErrWriter, "", 0x0))
+		if err = vcs.Clone(ctx, rbundle, update); err != nil {
+			return err
+		}
 	}
 
 	if !enabled {
@@ -83,28 +86,34 @@ func (self *Hariti) Remove(repository string, force bool) error {
 		return err
 	}
 
-	bundle, err := self.CreateRemoteBundle(repository)
+	bundle, err := self.CreateBundle(repository)
 	if err != nil {
 		return err
 	}
 
+	// when bundle is a local bundle, we never delete an original
+	rbundle, ok := bundle.(*RemoteBundle)
+	if !ok {
+		return nil
+	}
+
 	if !force {
 		// check repository modified
-		vcs := DetectVCS(bundle.URL)
+		vcs := DetectVCS(rbundle.URL)
 		if vcs == nil {
-			return fmt.Errorf("Can't detect vcs type: %s", bundle.URL)
+			return fmt.Errorf("Can't detect vcs type: %s", rbundle.URL)
 		}
 		ctx := context.Background()
 		ctx = WithWriter(ctx, self.config.Writer)
 		ctx = WithErrWriter(ctx, self.config.ErrWriter)
 		ctx = WithLogger(ctx, log.New(self.config.ErrWriter, "", 0x0))
-		if modified, err := vcs.IsModified(ctx, bundle); err != nil {
+		if modified, err := vcs.IsModified(ctx, rbundle); err != nil {
 			return fmt.Errorf("Modification check failure: %s", err)
 		} else if modified {
-			return fmt.Errorf("Can't remove modified bundle %s", bundle.LocalPath)
+			return fmt.Errorf("Can't remove modified bundle %s", rbundle.LocalPath)
 		}
 	}
-	if err := os.RemoveAll(bundle.LocalPath); err != nil {
+	if err := os.RemoveAll(rbundle.LocalPath); err != nil {
 		return err
 	}
 	return nil
@@ -117,7 +126,7 @@ func (self *Hariti) List() ([]Bundle, error) {
 	}
 	bundles := make([]Bundle, 0, len(children))
 	for _, child := range children {
-		if bundle, err := self.CreateLocalBundle(child.Name()); err != nil {
+		if bundle, err := self.CreateBundle(child.Name()); err != nil {
 			return bundles, err
 		} else {
 			bundles = append(bundles, bundle)
@@ -127,14 +136,14 @@ func (self *Hariti) List() ([]Bundle, error) {
 }
 
 func (self *Hariti) Enable(repository string) error {
-	bundle, err := self.CreateRemoteBundle(repository)
+	bundle, err := self.CreateBundle(repository)
 	if err != nil {
 		return err
 	}
 
 	// create relative links
-	filename := filepath.Join(self.config.Directory, "deploy", bundle.Name)
-	relLink, err := filepath.Rel(filepath.Dir(filename), bundle.LocalPath)
+	filename := filepath.Join(self.config.Directory, "deploy", bundle.GetName())
+	relLink, err := filepath.Rel(filepath.Dir(filename), bundle.GetLocalPath())
 	if err != nil {
 		return err
 	}
@@ -159,13 +168,13 @@ func (self *Hariti) Enable(repository string) error {
 }
 
 func (self *Hariti) Disable(repository string) error {
-	bundle, err := self.CreateRemoteBundle(repository)
+	bundle, err := self.CreateBundle(repository)
 	if err != nil {
 		return err
 	}
 
 	// remove links
-	filename := filepath.Join(self.config.Directory, "deploy", bundle.Name)
+	filename := filepath.Join(self.config.Directory, "deploy", bundle.GetName())
 	if info, err := os.Lstat(filename); err != nil {
 		// there's no file, just ignore it
 	} else if info.Mode()&os.ModeSymlink == os.ModeSymlink {
@@ -180,7 +189,17 @@ func (self *Hariti) Disable(repository string) error {
 	return nil
 }
 
-func (self *Hariti) CreateRemoteBundle(repository string) (*RemoteBundle, error) {
+func (self *Hariti) CreateBundle(repository string) (Bundle, error) {
+	if strings.HasPrefix(repository, "file://") {
+		return self.createLocalBundle(repository)
+	} else if _, err := os.Stat(repository); err == nil {
+		return self.createLocalBundle(repository)
+	} else {
+		return self.createRemoteBundle(repository)
+	}
+}
+
+func (self *Hariti) createRemoteBundle(repository string) (*RemoteBundle, error) {
 	var err error
 
 	bundle := &RemoteBundle{
@@ -217,7 +236,7 @@ func (self *Hariti) CreateRemoteBundle(repository string) (*RemoteBundle, error)
 	return bundle, nil
 }
 
-func (self *Hariti) CreateLocalBundle(repository string) (*LocalBundle, error) {
+func (self *Hariti) createLocalBundle(repository string) (*LocalBundle, error) {
 	bundle := &LocalBundle{
 		LocalPath: repository,
 	}

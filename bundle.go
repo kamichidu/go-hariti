@@ -4,11 +4,15 @@ import (
 	"io"
 	"io/ioutil"
 	"net/url"
+	"path/filepath"
 
 	"gopkg.in/yaml.v2"
 )
 
-type Bundle interface{}
+type Bundle interface {
+	GetName() string
+	GetLocalPath() string
+}
 
 type BuildScript struct {
 	Windows string `yaml:"windows"`
@@ -74,12 +78,13 @@ func (self *RemoteBundle) MarshalYAML() (interface{}, error) {
 	return data, nil
 }
 
+func (self *RemoteBundle) GetName() string      { return self.Name }
+func (self *RemoteBundle) GetLocalPath() string { return self.LocalPath }
+
 var _ yaml.Marshaler = (*RemoteBundle)(nil)
 
 type LocalBundle struct {
-	LocalPath    string   `yaml:"path"`
-	IncludeGlobs []string `yaml:"includes"`
-	ExcludeGlobs []string `yaml:"excludes"`
+	LocalPath string `yaml:"path"`
 }
 
 func createLocalBundleFromMap(data map[string]interface{}) (*LocalBundle, error) {
@@ -91,19 +96,8 @@ func createLocalBundleFromMap(data map[string]interface{}) (*LocalBundle, error)
 	return bundle, yaml.Unmarshal(buf, &bundle)
 }
 
-func (self *LocalBundle) MarshalYAML() (interface{}, error) {
-	data := make(yaml.MapSlice, 0)
-	data = append(data, yaml.MapItem{Key: "path", Value: self.LocalPath})
-	if len(self.IncludeGlobs) > 0 {
-		data = append(data, yaml.MapItem{Key: "includes", Value: self.IncludeGlobs})
-	}
-	if len(self.ExcludeGlobs) > 0 {
-		data = append(data, yaml.MapItem{Key: "excludes", Value: self.ExcludeGlobs})
-	}
-	return data, nil
-}
-
-var _ yaml.Marshaler = (*LocalBundle)(nil)
+func (self *LocalBundle) GetName() string      { return filepath.Base(self.LocalPath) }
+func (self *LocalBundle) GetLocalPath() string { return self.LocalPath }
 
 type Bundles []Bundle
 

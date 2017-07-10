@@ -91,9 +91,7 @@ func TestUnmarshalBundles(t *testing.T) {
 			EnableIfExpr: "!has('gui_running')",
 		},
 		&LocalBundle{
-			LocalPath:    "~/sources/",
-			IncludeGlobs: []string{"*"},
-			ExcludeGlobs: []string{"**/*"},
+			LocalPath: "~/sources/vim-hariti/",
 		},
 	}
 	if !reflect.DeepEqual(bundles, expected) {

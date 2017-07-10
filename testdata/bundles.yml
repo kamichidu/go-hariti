@@ -26,8 +26,4 @@ bundles:
     aliases: [csapprox]
     enable-if: "!has('gui_running')"
 
-  - path: ~/sources/
-    includes:
-      - '*'
-    excludes:
-      - '**/*'
+  - path: ~/sources/vim-hariti/
