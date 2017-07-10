@@ -120,13 +120,37 @@ func (self *Hariti) Remove(repository string, force bool) error {
 }
 
 func (self *Hariti) List() ([]Bundle, error) {
+	// under the repositories dir, that's remote bundles
 	children, err := ioutil.ReadDir(filepath.Join(self.config.Directory, "repositories"))
 	if err != nil {
 		return nil, err
 	}
-	bundles := make([]Bundle, 0, len(children))
+	bundles := make([]Bundle, 0)
 	for _, child := range children {
-		if bundle, err := self.CreateBundle(child.Name()); err != nil {
+		u, err := url.QueryUnescape(child.Name())
+		if err != nil {
+			return bundles, err
+		}
+		if bundle, err := self.createRemoteBundle(u); err != nil {
+			return bundles, err
+		} else {
+			bundles = append(bundles, bundle)
+		}
+	}
+	// under the deploy dir and not pointed to repositories dir, that's local bundles
+	children, err = ioutil.ReadDir(filepath.Join(self.config.Directory, "deploy"))
+	if err != nil {
+		return bundles, err
+	}
+	for _, child := range children {
+		evalPath, err := filepath.EvalSymlinks(filepath.Join(self.config.Directory, "deploy", child.Name()))
+		if err != nil {
+			return bundles, err
+		}
+		if filepath.HasPrefix(evalPath, filepath.Join(self.config.Directory, "repositories")) {
+			continue
+		}
+		if bundle, err := self.createLocalBundle(evalPath); err != nil {
 			return bundles, err
 		} else {
 			bundles = append(bundles, bundle)
