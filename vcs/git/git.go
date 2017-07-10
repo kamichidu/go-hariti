@@ -1,6 +1,7 @@
 package git
 
 import (
+	"context"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -11,19 +12,23 @@ import (
 
 type Git struct{}
 
-func (self *Git) Clone(c *hariti.Context, bundle *hariti.RemoteBundle) error {
+func (self *Git) Clone(c context.Context, bundle *hariti.RemoteBundle, update bool) error {
+	log := hariti.LoggerFromContextKey(c)
+	out := hariti.WriterFromContext(c)
+	errOut := hariti.ErrWriterFromContext(c)
+
 	var cmd *exec.Cmd
 	if info, err := os.Stat(bundle.LocalPath); err != nil {
-		c.Logger.Printf("Cloning %s to %s\n", bundle.URL, bundle.LocalPath)
+		log.Printf("Cloning %s to %s\n", bundle.URL, bundle.LocalPath)
 		cmd = exec.Command("git", "clone", "--recursive", bundle.URL.String(), bundle.LocalPath)
-		cmd.Stdout = c.Writer
-		cmd.Stderr = c.ErrWriter
-	} else if info.IsDir() && c.BoolFlag("update") {
-		c.Logger.Printf("Pulling in %s", bundle.LocalPath)
+		cmd.Stdout = out
+		cmd.Stderr = errOut
+	} else if info.IsDir() && update {
+		log.Printf("Pulling in %s", bundle.LocalPath)
 		cmd = exec.Command("git", "pull", "--ff", "--ff-only")
 		cmd.Dir = bundle.LocalPath
-		cmd.Stdout = c.Writer
-		cmd.Stderr = c.ErrWriter
+		cmd.Stdout = out
+		cmd.Stderr = errOut
 	} else {
 		return nil
 	}
@@ -41,11 +46,11 @@ func (self *Git) Clone(c *hariti.Context, bundle *hariti.RemoteBundle) error {
 	}
 }
 
-func (self *Git) Remove(c *hariti.Context, bundle *hariti.RemoteBundle) error {
+func (self *Git) Remove(c context.Context, bundle *hariti.RemoteBundle) error {
 	return nil
 }
 
-func (self *Git) CanHandle(c *hariti.Context, u *url.URL) bool {
+func (self *Git) CanHandle(c context.Context, u *url.URL) bool {
 	cmd := exec.Command("git", "ls-remote", u.String())
 	cmd.Stdout = ioutil.Discard
 	cmd.Stderr = ioutil.Discard

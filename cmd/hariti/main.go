@@ -12,10 +12,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-// XXX: Actual values are injected on build time
-var (
-	appVersion = "{{appVersion}}"
-)
+var appVersion string
 
 var defaultHaritiDirectory string
 
@@ -43,6 +40,10 @@ func run() int {
 			EnvVar: "HARITI_HOME",
 			Value:  defaultHaritiDirectory,
 		},
+		&cli.BoolFlag{
+			Name:  "verbose",
+			Usage: "Verbose output",
+		},
 	}
 	app.Writer = os.Stdout
 	app.ErrWriter = os.Stderr
@@ -52,8 +53,9 @@ func run() int {
 			Directory: c.String("directory"),
 			Writer:    c.App.Writer,
 			ErrWriter: c.App.ErrWriter,
+			Verbose:   c.GlobalBool("verbose"),
 		})
-		if err := har.SetupEnv(); err != nil {
+		if err := har.SetupManagedDirectory(); err != nil {
 			return err
 		}
 		c.App.Metadata["hariti"] = har

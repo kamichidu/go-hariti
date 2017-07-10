@@ -3,35 +3,39 @@ package hariti
 import (
 	"context"
 	"io"
-	"log"
 )
 
-type Context struct {
-	context.Context
+const (
+	writerContextKey = iota
+	errWriterContextKey
+	loggerContextKey
+)
 
-	Writer    io.Writer
-	ErrWriter io.Writer
-	Logger    *log.Logger
+func WithWriter(parent context.Context, w io.Writer) context.Context {
+	return context.WithValue(parent, writerContextKey, w)
 }
 
-func (self *Context) BoolFlag(name string) bool {
-	v := self.Context.Value(name)
-	if b, ok := v.(bool); ok {
-		return b
-	} else {
-		return false
-	}
+func WriterFromContext(ctx context.Context) io.Writer {
+	return ctx.Value(writerContextKey).(io.Writer)
 }
 
-func (self *Context) StringFlag(name string) string {
-	v := self.Context.Value(name)
-	if s, ok := v.(string); ok {
-		return s
-	} else {
-		return ""
-	}
+func WithErrWriter(parent context.Context, w io.Writer) context.Context {
+	return context.WithValue(parent, errWriterContextKey, w)
 }
 
-func (self *Context) SetFlag(name string, value interface{}) {
-	self.Context = context.WithValue(self.Context, name, value)
+func ErrWriterFromContext(ctx context.Context) io.Writer {
+	return ctx.Value(errWriterContextKey).(io.Writer)
+}
+
+type Logger interface {
+	Print(...interface{})
+	Printf(string, ...interface{})
+}
+
+func WithLogger(parent context.Context, logger Logger) context.Context {
+	return context.WithValue(parent, loggerContextKey, logger)
+}
+
+func LoggerFromContextKey(ctx context.Context) Logger {
+	return ctx.Value(loggerContextKey).(Logger)
 }

@@ -18,8 +18,8 @@ func getAction(c *cli.Context) error {
 		go func(repository string) {
 			defer wg.Done()
 
-			if err := har.Get(repository, c.Bool("update")); err != nil {
-				logger.Println(err)
+			if err := har.Get(repository, c.Bool("update"), c.BoolT("disabled")); err != nil {
+				logger.Printf("Error: %s", err)
 			}
 		}(arg)
 	}
@@ -38,9 +38,9 @@ func init() {
 				Name:  "u, update",
 				Usage: "Update",
 			},
-			&cli.BoolFlag{
-				Name:  "v, verbose",
-				Usage: "Output verbosely",
+			&cli.BoolTFlag{
+				Name:  "disabled",
+				Usage: "Only get, but disabled bundle",
 			},
 		},
 		Action: getAction,

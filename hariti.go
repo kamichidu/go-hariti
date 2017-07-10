@@ -3,7 +3,6 @@ package hariti
 import (
 	"context"
 	"fmt"
-	"github.com/kr/pretty"
 	"io"
 	"log"
 	"net/url"
@@ -17,6 +16,7 @@ type HaritiConfig struct {
 	Directory string
 	Writer    io.Writer
 	ErrWriter io.Writer
+	Verbose   bool
 }
 
 type Hariti struct {
@@ -27,7 +27,7 @@ func NewHariti(config *HaritiConfig) *Hariti {
 	return &Hariti{config}
 }
 
-func (self *Hariti) SetupEnv() error {
+func (self *Hariti) SetupManagedDirectory() error {
 	// + {dir}/
 	// |  + repositories/
 	// |  | + repo/
@@ -52,26 +52,42 @@ func (self *Hariti) SetupEnv() error {
 	return nil
 }
 
-func (self *Hariti) Get(repository string, updateFlag bool) error {
+func (self *Hariti) Get(repository string, update bool, enabled bool) error {
 	bundle, err := self.CreateRemoteBundle(repository)
 	if err != nil {
 		return err
 	}
-	pretty.Printf("bundle = %# v\n", bundle)
 
 	vcs := DetectVCS(bundle.URL)
 	if vcs == nil {
 		return fmt.Errorf("Can't detect vcs type: %s", bundle.URL)
 	}
-	ctx := &Context{
-		Context:   context.Background(),
-		Writer:    self.config.Writer,
-		ErrWriter: self.config.ErrWriter,
-		Logger:    log.New(self.config.ErrWriter, "", 0x0),
+	ctx := context.Background()
+	ctx = WithWriter(ctx, self.config.Writer)
+	ctx = WithErrWriter(ctx, self.config.ErrWriter)
+	ctx = WithLogger(ctx, log.New(self.config.ErrWriter, "", 0x0))
+	if err = vcs.Clone(ctx, bundle, update); err != nil {
+		return err
 	}
-	ctx.SetFlag("update", updateFlag)
-	ctx.SetFlag("verbose", false)
-	if err = vcs.Clone(ctx, bundle); err != nil {
+
+	if !enabled {
+		return nil
+	}
+
+	return self.Enable(repository)
+}
+
+func (self *Hariti) Rm() error {
+	return nil
+}
+
+func (self *Hariti) List() error {
+	return nil
+}
+
+func (self *Hariti) Enable(repository string) error {
+	bundle, err := self.CreateRemoteBundle(repository)
+	if err != nil {
 		return err
 	}
 
@@ -82,7 +98,7 @@ func (self *Hariti) Get(repository string, updateFlag bool) error {
 		return err
 	}
 	if info, err := os.Lstat(filename); err != nil {
-		// there's no link, just create new one
+		// there's no file, just create new one
 		if err = os.Symlink(relLink, filename); err != nil {
 			return err
 		}
@@ -95,12 +111,31 @@ func (self *Hariti) Get(repository string, updateFlag bool) error {
 			return fmt.Errorf("%s should be point to %s, but %s", filename, relLink, state)
 		}
 	} else {
+		// there's non-link file
+		return fmt.Errorf("%s is already exists, ignored", filename)
 	}
-
 	return nil
 }
 
-func (self *Hariti) Rm() error {
+func (self *Hariti) Disable(repository string) error {
+	bundle, err := self.CreateRemoteBundle(repository)
+	if err != nil {
+		return err
+	}
+
+	// remove links
+	filename := filepath.Join(self.config.Directory, "deploy", bundle.Name)
+	if info, err := os.Lstat(filename); err != nil {
+		// there's no file, just ignore it
+	} else if info.Mode()&os.ModeSymlink == os.ModeSymlink {
+		// there's a link, delete it
+		if err := os.Remove(filename); err != nil {
+			return fmt.Errorf("Can't remove symlink: %s", err)
+		}
+	} else {
+		// there's non-link file
+		return fmt.Errorf("%s is not a symlink, ignore it", filename)
+	}
 	return nil
 }
 
