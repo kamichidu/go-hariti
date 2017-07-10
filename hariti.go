@@ -1,6 +1,7 @@
 package hariti
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -38,7 +40,7 @@ func (self *Hariti) SetupManagedDirectory() error {
 	// |  | - link
 	directories := []string{
 		self.config.Directory,
-		filepath.Join(self.config.Directory, "repositories"),
+		self.RepositoriesDir(),
 		self.DeployDir(),
 	}
 	for _, directory := range directories {
@@ -55,6 +57,55 @@ func (self *Hariti) SetupManagedDirectory() error {
 
 func (self *Hariti) DeployDir() string {
 	return filepath.Join(self.config.Directory, "deploy")
+}
+
+func (self *Hariti) RepositoriesDir() string {
+	return filepath.Join(self.config.Directory, "repositories")
+}
+
+func (self *Hariti) RuntimeDirs() ([]string, error) {
+	rtp, afterRtp, err := self.vimNativeRuntimeDirs()
+	if err != nil {
+		return nil, err
+	}
+
+	enabledInfo, err := ioutil.ReadDir(self.DeployDir())
+	if err != nil {
+		return nil, err
+	}
+	for _, info := range enabledInfo {
+		pluginDir := filepath.Join(self.DeployDir(), info.Name())
+		rtp = append(rtp, pluginDir)
+
+		// has after dir or not
+		if info, err := os.Stat(filepath.Join(pluginDir, "after")); err == nil && info.IsDir() {
+			afterRtp = append(afterRtp, filepath.Join(pluginDir, "after"))
+		}
+	}
+	return append(rtp, afterRtp...), nil
+}
+
+func (self *Hariti) vimNativeRuntimeDirs() (rtp []string, afterRtp []string, err error) {
+	buf := new(bytes.Buffer)
+
+	// vim -u NONE -i NONE -n -N --cmd "echo &runtimepath" --cmd "q!" 3>&1 1>&2 2>&3 3>&-
+	cmd := exec.Command("vim", "--not-a-term", "-N", "-n", "--noplugin", "-i", "NONE", "-u", "NONE", "-U", "NONE", "--cmd", "echo &runtimepath", "--cmd", "q!")
+	cmd.Stdout = ioutil.Discard
+	cmd.Stderr = buf
+	if err := cmd.Run(); err != nil {
+		return nil, nil, err
+	}
+	paths := strings.Split(strings.TrimSpace(buf.String()), ",")
+	rtp = make([]string, 0)
+	afterRtp = make([]string, 0)
+	for _, path := range paths {
+		if filepath.Base(path) == "after" {
+			afterRtp = append(afterRtp, path)
+		} else {
+			rtp = append(rtp, path)
+		}
+	}
+	return rtp, afterRtp, nil
 }
 
 func (self *Hariti) Get(repository string, update bool, enabled bool) error {
@@ -125,7 +176,7 @@ func (self *Hariti) Remove(repository string, force bool) error {
 
 func (self *Hariti) List() ([]Bundle, error) {
 	// under the repositories dir, that's remote bundles
-	children, err := ioutil.ReadDir(filepath.Join(self.config.Directory, "repositories"))
+	children, err := ioutil.ReadDir(self.RepositoriesDir())
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +202,7 @@ func (self *Hariti) List() ([]Bundle, error) {
 		if err != nil {
 			return bundles, err
 		}
-		if filepath.HasPrefix(evalPath, filepath.Join(self.config.Directory, "repositories")) {
+		if filepath.HasPrefix(evalPath, self.RepositoriesDir()) {
 			continue
 		}
 		if bundle, err := self.createLocalBundle(evalPath); err != nil {
@@ -259,7 +310,7 @@ func (self *Hariti) createRemoteBundle(repository string) (*RemoteBundle, error)
 	}
 
 	bundle.Name = path.Base(bundle.URL.String())
-	bundle.LocalPath = filepath.Join(self.config.Directory, "repositories", url.QueryEscape(bundle.URL.String()))
+	bundle.LocalPath = filepath.Join(self.RepositoriesDir(), url.QueryEscape(bundle.URL.String()))
 
 	return bundle, nil
 }
