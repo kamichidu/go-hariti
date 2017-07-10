@@ -1,5 +1,3 @@
-VERBOSE=
-
 .PHONY: all
 all: test build
 
