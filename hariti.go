@@ -39,7 +39,7 @@ func (self *Hariti) SetupManagedDirectory() error {
 	directories := []string{
 		self.config.Directory,
 		filepath.Join(self.config.Directory, "repositories"),
-		filepath.Join(self.config.Directory, "deploy"),
+		self.DeployDir(),
 	}
 	for _, directory := range directories {
 		if info, err := os.Stat(directory); err != nil {
@@ -51,6 +51,10 @@ func (self *Hariti) SetupManagedDirectory() error {
 		}
 	}
 	return nil
+}
+
+func (self *Hariti) DeployDir() string {
+	return filepath.Join(self.config.Directory, "deploy")
 }
 
 func (self *Hariti) Get(repository string, update bool, enabled bool) error {
@@ -138,12 +142,12 @@ func (self *Hariti) List() ([]Bundle, error) {
 		}
 	}
 	// under the deploy dir and not pointed to repositories dir, that's local bundles
-	children, err = ioutil.ReadDir(filepath.Join(self.config.Directory, "deploy"))
+	children, err = ioutil.ReadDir(self.DeployDir())
 	if err != nil {
 		return bundles, err
 	}
 	for _, child := range children {
-		evalPath, err := filepath.EvalSymlinks(filepath.Join(self.config.Directory, "deploy", child.Name()))
+		evalPath, err := filepath.EvalSymlinks(filepath.Join(self.DeployDir(), child.Name()))
 		if err != nil {
 			return bundles, err
 		}
@@ -166,7 +170,7 @@ func (self *Hariti) Enable(repository string) error {
 	}
 
 	// create relative links
-	filename := filepath.Join(self.config.Directory, "deploy", bundle.GetName())
+	filename := filepath.Join(self.DeployDir(), bundle.GetName())
 	relLink, err := filepath.Rel(filepath.Dir(filename), bundle.GetLocalPath())
 	if err != nil {
 		return err
@@ -198,7 +202,7 @@ func (self *Hariti) Disable(repository string) error {
 	}
 
 	// remove links
-	filename := filepath.Join(self.config.Directory, "deploy", bundle.GetName())
+	filename := filepath.Join(self.DeployDir(), bundle.GetName())
 	if info, err := os.Lstat(filename); err != nil {
 		// there's no file, just ignore it
 	} else if info.Mode()&os.ModeSymlink == os.ModeSymlink {

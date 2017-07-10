@@ -9,6 +9,10 @@ build: generate
 generate:
 	go generate -v $$(glide novendor)
 
+.PHONY: debug
+debug: build
+	./hariti ${ARGS}
+
 .PHONY: test
 test: generate
 	go test ${VERBOSE} $$(glide novendor)
