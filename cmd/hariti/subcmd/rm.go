@@ -1,13 +1,19 @@
 package subcmd
 
 import (
-	"fmt"
-
+	"github.com/kamichidu/go-hariti"
 	"github.com/urfave/cli"
 )
 
 func rmAction(c *cli.Context) error {
-	return fmt.Errorf("Sorry, unimplemented yet")
+	har := c.App.Metadata["hariti"].(*hariti.Hariti)
+
+	for _, arg := range c.Args() {
+		if err := har.Remove(arg, c.Bool("force")); err != nil {
+			return cli.NewExitError(err, 1)
+		}
+	}
+	return nil
 }
 
 func init() {
@@ -15,7 +21,12 @@ func init() {
 		Name:      "rm",
 		Usage:     "Remove {repository}",
 		ArgsUsage: "{repository}...",
-		Flags:     []cli.Flag{},
-		Action:    rmAction,
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:  "force,f",
+				Usage: "Force remove",
+			},
+		},
+		Action: rmAction,
 	})
 }

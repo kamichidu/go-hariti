@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
@@ -77,12 +78,52 @@ func (self *Hariti) Get(repository string, update bool, enabled bool) error {
 	return self.Enable(repository)
 }
 
-func (self *Hariti) Rm() error {
+func (self *Hariti) Remove(repository string, force bool) error {
+	if err := self.Disable(repository); err != nil {
+		return err
+	}
+
+	bundle, err := self.CreateRemoteBundle(repository)
+	if err != nil {
+		return err
+	}
+
+	if !force {
+		// check repository modified
+		vcs := DetectVCS(bundle.URL)
+		if vcs == nil {
+			return fmt.Errorf("Can't detect vcs type: %s", bundle.URL)
+		}
+		ctx := context.Background()
+		ctx = WithWriter(ctx, self.config.Writer)
+		ctx = WithErrWriter(ctx, self.config.ErrWriter)
+		ctx = WithLogger(ctx, log.New(self.config.ErrWriter, "", 0x0))
+		if modified, err := vcs.IsModified(ctx, bundle); err != nil {
+			return fmt.Errorf("Modification check failure: %s", err)
+		} else if modified {
+			return fmt.Errorf("Can't remove modified bundle %s", bundle.LocalPath)
+		}
+	}
+	if err := os.RemoveAll(bundle.LocalPath); err != nil {
+		return err
+	}
 	return nil
 }
 
-func (self *Hariti) List() error {
-	return nil
+func (self *Hariti) List() ([]Bundle, error) {
+	children, err := ioutil.ReadDir(filepath.Join(self.config.Directory, "repositories"))
+	if err != nil {
+		return nil, err
+	}
+	bundles := make([]Bundle, 0, len(children))
+	for _, child := range children {
+		if bundle, err := self.CreateLocalBundle(child.Name()); err != nil {
+			return bundles, err
+		} else {
+			bundles = append(bundles, bundle)
+		}
+	}
+	return bundles, nil
 }
 
 func (self *Hariti) Enable(repository string) error {

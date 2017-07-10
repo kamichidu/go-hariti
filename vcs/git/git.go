@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -46,8 +47,37 @@ func (self *Git) Clone(c context.Context, bundle *hariti.RemoteBundle, update bo
 	}
 }
 
-func (self *Git) Remove(c context.Context, bundle *hariti.RemoteBundle) error {
-	return nil
+func (self *Git) IsModified(c context.Context, bundle *hariti.RemoteBundle) (bool, error) {
+	out := hariti.WriterFromContext(c)
+	errOut := hariti.ErrWriterFromContext(c)
+
+	var cmd *exec.Cmd
+	if info, err := os.Stat(bundle.LocalPath); err != nil {
+		return false, fmt.Errorf("Repository %s not cloned into %s", bundle.URL, bundle.LocalPath)
+	} else if !info.IsDir() {
+		return false, fmt.Errorf("%s doesn't seems like a repository %s", bundle.LocalPath, bundle.URL)
+	} else {
+		cmd = exec.Command("git", "diff", "--exit-code")
+		cmd.Dir = bundle.LocalPath
+		cmd.Stdout = out
+		cmd.Stderr = errOut
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- cmd.Run()
+	}()
+	select {
+	case <-c.Done():
+		cmd.Process.Kill()
+		return false, c.Err()
+	case err := <-errCh:
+		if err != nil {
+			return true, err
+		} else {
+			return false, nil
+		}
+	}
 }
 
 func (self *Git) CanHandle(c context.Context, u *url.URL) bool {

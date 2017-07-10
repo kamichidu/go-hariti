@@ -8,7 +8,7 @@ import (
 type VCS interface {
 	CanHandle(c context.Context, u *url.URL) bool
 	Clone(c context.Context, bundle *RemoteBundle, update bool) error
-	Remove(c context.Context, bundle *RemoteBundle) error
+	IsModified(c context.Context, bundle *RemoteBundle) (bool, error)
 }
 
 var vcsList []VCS
