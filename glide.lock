@@ -1,12 +1,12 @@
 hash: a1065c67d7b790b1398c731d1c2bec1f643ba31ecbc79e8de24cce1bd2e33a43
-updated: 2017-04-23T20:41:00.332084183+09:00
+updated: 2017-07-10T22:26:45.556234387+09:00
 imports:
 - name: github.com/kr/pretty
   version: cfb55aafdaf3ec08f0db22699ab822c50091b1c4
 - name: github.com/kr/text
   version: 7cafcd837844e784b526369c9bce262804aebc60
 - name: github.com/pmezard/go-difflib
-  version: 792786c7400a136282c1664665ae0a8db921c6c2
+  version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
   subpackages:
   - difflib
 - name: github.com/urfave/cli
