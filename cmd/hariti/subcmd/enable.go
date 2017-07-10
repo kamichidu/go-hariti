@@ -1,13 +1,22 @@
 package subcmd
 
 import (
-	"fmt"
+	"log"
 
+	"github.com/kamichidu/go-hariti"
 	"github.com/urfave/cli"
 )
 
 func enableAction(c *cli.Context) error {
-	return fmt.Errorf("Sorry, unimplemented yet")
+	har := c.App.Metadata["hariti"].(*hariti.Hariti)
+	logger := c.App.Metadata["logger"].(*log.Logger)
+
+	for _, arg := range c.Args() {
+		if err := har.Enable(arg); err != nil {
+			logger.Printf("Error: %s", err)
+		}
+	}
+	return nil
 }
 
 func init() {
