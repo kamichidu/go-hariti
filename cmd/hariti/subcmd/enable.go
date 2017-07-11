@@ -11,8 +11,15 @@ func enableAction(c *cli.Context) error {
 	har := c.App.Metadata["hariti"].(*hariti.Hariti)
 	logger := c.App.Metadata["logger"].(*log.Logger)
 
+	expr := c.String("when")
 	for _, arg := range c.Args() {
-		if err := har.Enable(arg); err != nil {
+		var err error
+		if expr != "" {
+			err = har.EnableIf(arg, expr)
+		} else {
+			err = har.Enable(arg)
+		}
+		if err != nil {
 			logger.Printf("Error: %s", err)
 		}
 	}
@@ -24,7 +31,12 @@ func init() {
 		Name:      "enable",
 		Usage:     "Enable {repository}",
 		ArgsUsage: "{repository}...",
-		Flags:     []cli.Flag{},
-		Action:    enableAction,
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:  "when",
+				Usage: "Enabled when given vim script evaluated as true",
+			},
+		},
+		Action: enableAction,
 	})
 }

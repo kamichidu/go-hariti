@@ -3,6 +3,7 @@ package hariti
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -38,8 +39,10 @@ func (self *Hariti) SetupManagedDirectory() error {
 	// |  + deploy/
 	// |  | - link
 	// |  | - link
+	// |  + meta/
 	directories := []string{
 		self.config.Directory,
+		self.MetaDir(),
 		self.RepositoriesDir(),
 		self.DeployDir(),
 	}
@@ -55,6 +58,10 @@ func (self *Hariti) SetupManagedDirectory() error {
 	return nil
 }
 
+func (self *Hariti) MetaDir() string {
+	return filepath.Join(self.config.Directory, "meta")
+}
+
 func (self *Hariti) DeployDir() string {
 	return filepath.Join(self.config.Directory, "deploy")
 }
@@ -63,17 +70,22 @@ func (self *Hariti) RepositoriesDir() string {
 	return filepath.Join(self.config.Directory, "repositories")
 }
 
-func (self *Hariti) RuntimeDirs() ([]string, error) {
-	rtp, afterRtp, err := self.vimNativeRuntimeDirs()
-	if err != nil {
-		return nil, err
+func (self *Hariti) WriteScript(w io.Writer, header []string) error {
+	// write given header lines
+	for _, line := range header {
+		fmt.Fprintln(w, line)
 	}
 
-	enabledInfo, err := ioutil.ReadDir(self.DeployDir())
+	rtp, afterRtp, err := self.vimNativeRuntimeDirs()
 	if err != nil {
-		return nil, err
+		return err
 	}
-	for _, info := range enabledInfo {
+
+	enabledBundles, err := ioutil.ReadDir(self.DeployDir())
+	if err != nil {
+		return err
+	}
+	for _, info := range enabledBundles {
 		pluginDir := filepath.Join(self.DeployDir(), info.Name())
 		rtp = append(rtp, pluginDir)
 
@@ -82,7 +94,26 @@ func (self *Hariti) RuntimeDirs() ([]string, error) {
 			afterRtp = append(afterRtp, filepath.Join(pluginDir, "after"))
 		}
 	}
-	return append(rtp, afterRtp...), nil
+
+	// generate vim script
+	fmt.Fprintln(w, "set runtimepath=")
+	for _, path := range append(rtp, afterRtp...) {
+		enableIfExpr, err := self.getMetaVar(filepath.Base(path), metaEnableIfExpr)
+		if err != nil {
+			return err
+		}
+
+		var prefix string
+		if v, ok := enableIfExpr.(string); ok && v != "" {
+			fmt.Fprintf(w, "if %s\n", v)
+			prefix = "  "
+		}
+		fmt.Fprintf(w, "%sset runtimepath+=%s\n", prefix, path)
+		if v, ok := enableIfExpr.(string); ok && v != "" {
+			fmt.Fprintln(w, "endif")
+		}
+	}
+	return nil
 }
 
 func (self *Hariti) vimNativeRuntimeDirs() (rtp []string, afterRtp []string, err error) {
@@ -256,6 +287,63 @@ func (self *Hariti) Enable(repository string) error {
 	return nil
 }
 
+func (self *Hariti) EnableIf(repository string, expr string) error {
+	// add meta data
+	bundle, err := self.CreateBundle(repository)
+	if err != nil {
+		return err
+	}
+	if err := self.addMetaVar(bundle.GetName(), metaEnableIfExpr, expr); err != nil {
+		return err
+	}
+	return self.Enable(repository)
+}
+
+const (
+	metaEnableIfExpr = "enableIf"
+)
+
+func (self *Hariti) addMetaVar(name string, key string, value interface{}) error {
+	w, err := os.Create(filepath.Join(self.MetaDir(), name))
+	if err != nil {
+		return err
+	}
+	defer w.Close()
+
+	meta := make(map[string]interface{})
+	if err := json.NewDecoder(w).Decode(&meta); err != nil && err != io.EOF {
+		return err
+	}
+	meta[key] = value
+	if err := json.NewEncoder(w).Encode(meta); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (self *Hariti) getMetaVar(name string, key string) (interface{}, error) {
+	filename := filepath.Join(self.MetaDir(), name)
+	if _, err := os.Stat(filename); err != nil {
+		return nil, nil
+	}
+
+	r, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+
+	meta := make(map[string]interface{})
+	if err := json.NewDecoder(r).Decode(&meta); err != nil {
+		return nil, err
+	}
+	if v, ok := meta[key]; ok {
+		return v, nil
+	} else {
+		return nil, nil
+	}
+}
+
 func (self *Hariti) Disable(repository string) error {
 	bundle, err := self.CreateBundle(repository)
 	if err != nil {
@@ -321,6 +409,11 @@ func (self *Hariti) createRemoteBundle(repository string) (*RemoteBundle, error)
 
 	bundle.Name = path.Base(bundle.URL.String())
 	bundle.LocalPath = filepath.Join(self.RepositoriesDir(), url.QueryEscape(bundle.URL.String()))
+	if v, err := self.getMetaVar(bundle.Name, metaEnableIfExpr); err != nil {
+		return nil, err
+	} else if expr, ok := v.(string); ok {
+		bundle.EnableIfExpr = expr
+	}
 
 	return bundle, nil
 }

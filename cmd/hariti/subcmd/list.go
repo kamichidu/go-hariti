@@ -24,15 +24,15 @@ func listAction(c *cli.Context) error {
 	)
 	w := tabwriter.NewWriter(c.App.Writer, minwidth, tabwidth, padding, padchar, flags)
 	defer w.Flush()
-	lineFmt := "%v\t%v\t%v\t%v\t%v\n"
-	fmt.Fprintf(w, lineFmt, "Kind", "Name", "Enabled", "URL/Path", "Aliases")
+	lineFmt := "%v\t%v\t%v\t%v\t%v\t%v\n"
+	fmt.Fprintf(w, lineFmt, "Kind", "Name", "Enabled", "EnabledIf", "URL/Path", "Aliases")
 	for _, bundle := range bundles {
 		enabled := har.IsEnabled(bundle)
 		switch v := bundle.(type) {
 		case *hariti.RemoteBundle:
-			fmt.Fprintf(w, lineFmt, "Remote", v.Name, enabled, v.URL, v.Aliases)
+			fmt.Fprintf(w, lineFmt, "Remote", v.Name, enabled, v.EnableIfExpr, v.URL, v.Aliases)
 		case *hariti.LocalBundle:
-			fmt.Fprintf(w, lineFmt, "Local", v.GetName(), enabled, v.LocalPath, []string{})
+			fmt.Fprintf(w, lineFmt, "Local", v.GetName(), enabled, "", v.LocalPath, []string{})
 		}
 	}
 
