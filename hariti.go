@@ -149,6 +149,64 @@ func (self *Hariti) IsEnabled(bundle Bundle) bool {
 	}
 }
 
+func (self *Hariti) AddDependency(repository string, dependency string) error {
+	bundle, err := self.CreateBundle(repository)
+	if err != nil {
+		return err
+	}
+
+	if rbundle, ok := bundle.(*RemoteBundle); ok {
+		dependencies := make([]string, 0)
+		for _, dep := range rbundle.Dependencies {
+			dependencies = append(dependencies, dep.URL.String())
+		}
+		return self.addMetaVar(bundle.GetName(), metaDependencies, append(dependencies, dependency))
+	} else {
+		return nil
+	}
+}
+
+func (self *Hariti) RemoveDependency(repository string, dependency string) error {
+	bundle, err := self.CreateBundle(repository)
+	if err != nil {
+		return err
+	}
+
+	if rbundle, ok := bundle.(*RemoteBundle); ok {
+		removalBundle, err := self.CreateBundle(dependency)
+		if err != nil {
+			return err
+		}
+		removalRBundle, ok := removalBundle.(*RemoteBundle)
+		if !ok {
+			return nil
+		}
+
+		filtered := make([]string, 0)
+		for _, dep := range rbundle.Dependencies {
+			if dep.URL.String() != removalRBundle.URL.String() {
+				filtered = append(filtered, dep.URL.String())
+			}
+		}
+		return self.addMetaVar(rbundle.Name, metaDependencies, filtered)
+	} else {
+		return nil
+	}
+}
+
+func (self *Hariti) ClearDependencies(repository string) error {
+	bundle, err := self.CreateBundle(repository)
+	if err != nil {
+		return err
+	}
+
+	if rbundle, ok := bundle.(*RemoteBundle); ok {
+		return self.addMetaVar(rbundle.Name, metaDependencies, []string{})
+	} else {
+		return nil
+	}
+}
+
 func (self *Hariti) Get(repository string, update bool, enabled bool) error {
 	bundle, err := self.CreateBundle(repository)
 	if err != nil {
@@ -301,6 +359,7 @@ func (self *Hariti) EnableIf(repository string, expr string) error {
 
 const (
 	metaEnableIfExpr = "enableIf"
+	metaDependencies = "dependencies"
 )
 
 func (self *Hariti) addMetaVar(name string, key string, value interface{}) error {
@@ -413,6 +472,21 @@ func (self *Hariti) createRemoteBundle(repository string) (*RemoteBundle, error)
 		return nil, err
 	} else if expr, ok := v.(string); ok {
 		bundle.EnableIfExpr = expr
+	}
+	if v, err := self.getMetaVar(bundle.Name, metaDependencies); err != nil {
+		return nil, err
+	} else if deps, ok := v.([]interface{}); ok {
+		for _, dep := range deps {
+			depRepo, ok := dep.(string)
+			if !ok {
+				continue
+			}
+			depBundle, err := self.createRemoteBundle(depRepo)
+			if err != nil {
+				return nil, err
+			}
+			bundle.Dependencies = append(bundle.Dependencies, depBundle)
+		}
 	}
 
 	return bundle, nil
