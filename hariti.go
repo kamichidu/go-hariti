@@ -108,6 +108,16 @@ func (self *Hariti) vimNativeRuntimeDirs() (rtp []string, afterRtp []string, err
 	return rtp, afterRtp, nil
 }
 
+func (self *Hariti) IsEnabled(bundle Bundle) bool {
+	if _, err := os.Stat(filepath.Join(self.DeployDir(), bundle.GetName())); err != nil {
+		// not found in deploy dir
+		return false
+	} else {
+		// found in deploy dir
+		return true
+	}
+}
+
 func (self *Hariti) Get(repository string, update bool, enabled bool) error {
 	bundle, err := self.CreateBundle(repository)
 	if err != nil {
