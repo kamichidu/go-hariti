@@ -16,6 +16,12 @@ import (
 	"strings"
 )
 
+const (
+	metaEnableIfExpr = "enableIf"
+	metaDependencies = "dependencies"
+	metaAliases      = "aliases"
+)
+
 type HaritiConfig struct {
 	Directory string
 	Writer    io.Writer
@@ -98,18 +104,18 @@ func (self *Hariti) WriteScript(w io.Writer, header []string) error {
 	// generate vim script
 	fmt.Fprintln(w, "set runtimepath=")
 	for _, path := range append(rtp, afterRtp...) {
-		enableIfExpr, err := self.getMetaVar(filepath.Base(path), metaEnableIfExpr)
+		enableIfExpr, err := self.getMetaString(filepath.Base(path), metaEnableIfExpr)
 		if err != nil {
 			return err
 		}
 
 		var prefix string
-		if v, ok := enableIfExpr.(string); ok && v != "" {
-			fmt.Fprintf(w, "if %s\n", v)
+		if enableIfExpr != "" {
+			fmt.Fprintf(w, "if %s\n", enableIfExpr)
 			prefix = "  "
 		}
 		fmt.Fprintf(w, "%sset runtimepath+=%s\n", prefix, path)
-		if v, ok := enableIfExpr.(string); ok && v != "" {
+		if enableIfExpr != "" {
 			fmt.Fprintln(w, "endif")
 		}
 	}
@@ -147,6 +153,39 @@ func (self *Hariti) IsEnabled(bundle Bundle) bool {
 		// found in deploy dir
 		return true
 	}
+}
+
+func (self *Hariti) AddAlias(repository string, alias string) error {
+	bundle, err := self.CreateBundle(repository)
+	if err != nil {
+		return err
+	}
+
+	return self.addMetaVar(bundle.GetName(), metaAliases, append(bundle.GetAliases(), alias))
+}
+
+func (self *Hariti) RemoveAlias(repository string, alias string) error {
+	bundle, err := self.CreateBundle(repository)
+	if err != nil {
+		return err
+	}
+
+	filtered := make([]string, 0)
+	for _, other := range bundle.GetAliases() {
+		if other != alias {
+			filtered = append(filtered, other)
+		}
+	}
+	return self.addMetaVar(bundle.GetName(), metaAliases, filtered)
+}
+
+func (self *Hariti) ClearAlias(repository string) error {
+	bundle, err := self.CreateBundle(repository)
+	if err != nil {
+		return err
+	}
+
+	return self.addMetaVar(bundle.GetName(), metaAliases, []string{})
 }
 
 func (self *Hariti) AddDependency(repository string, dependency string) error {
@@ -357,24 +396,25 @@ func (self *Hariti) EnableIf(repository string, expr string) error {
 	return self.Enable(repository)
 }
 
-const (
-	metaEnableIfExpr = "enableIf"
-	metaDependencies = "dependencies"
-)
-
 func (self *Hariti) addMetaVar(name string, key string, value interface{}) error {
-	w, err := os.Create(filepath.Join(self.MetaDir(), name))
+	rw, err := os.OpenFile(filepath.Join(self.MetaDir(), name), os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return err
 	}
-	defer w.Close()
+	defer rw.Close()
 
 	meta := make(map[string]interface{})
-	if err := json.NewDecoder(w).Decode(&meta); err != nil && err != io.EOF {
+	if err := json.NewDecoder(rw).Decode(&meta); err != nil && err != io.EOF {
+		return err
+	}
+	if _, err = rw.Seek(0, os.SEEK_SET); err != nil {
+		return err
+	}
+	if err = rw.Truncate(0); err != nil {
 		return err
 	}
 	meta[key] = value
-	if err := json.NewEncoder(w).Encode(meta); err != nil {
+	if err := json.NewEncoder(rw).Encode(meta); err != nil {
 		return err
 	}
 	return nil
@@ -401,6 +441,35 @@ func (self *Hariti) getMetaVar(name string, key string) (interface{}, error) {
 	} else {
 		return nil, nil
 	}
+}
+
+func (self *Hariti) getMetaString(name string, key string) (string, error) {
+	value, err := self.getMetaVar(name, key)
+	if err != nil {
+		return "", err
+	}
+
+	if s, ok := value.(string); ok {
+		return s, nil
+	} else {
+		return "", nil
+	}
+}
+func (self *Hariti) getMetaStringSlice(name string, key string) ([]string, error) {
+	value, err := self.getMetaVar(name, key)
+	if err != nil {
+		return nil, err
+	}
+
+	ss := make([]string, 0)
+	if items, ok := value.([]interface{}); ok {
+		for _, item := range items {
+			if s, ok := item.(string); ok {
+				ss = append(ss, s)
+			}
+		}
+	}
+	return ss, nil
 }
 
 func (self *Hariti) Disable(repository string) error {
@@ -468,25 +537,24 @@ func (self *Hariti) createRemoteBundle(repository string) (*RemoteBundle, error)
 
 	bundle.Name = path.Base(bundle.URL.String())
 	bundle.LocalPath = filepath.Join(self.RepositoriesDir(), url.QueryEscape(bundle.URL.String()))
-	if v, err := self.getMetaVar(bundle.Name, metaEnableIfExpr); err != nil {
+	if bundle.EnableIfExpr, err = self.getMetaString(bundle.Name, metaEnableIfExpr); err != nil {
 		return nil, err
-	} else if expr, ok := v.(string); ok {
-		bundle.EnableIfExpr = expr
 	}
-	if v, err := self.getMetaVar(bundle.Name, metaDependencies); err != nil {
+	if dependencies, err := self.getMetaStringSlice(bundle.Name, metaDependencies); err != nil {
 		return nil, err
-	} else if deps, ok := v.([]interface{}); ok {
-		for _, dep := range deps {
-			depRepo, ok := dep.(string)
-			if !ok {
-				continue
-			}
-			depBundle, err := self.createRemoteBundle(depRepo)
+	} else {
+		for _, dependency := range dependencies {
+			depBundle, err := self.createRemoteBundle(dependency)
 			if err != nil {
 				return nil, err
 			}
 			bundle.Dependencies = append(bundle.Dependencies, depBundle)
 		}
+	}
+	if aliases, err := self.getMetaStringSlice(bundle.Name, metaAliases); err != nil {
+		return nil, err
+	} else {
+		bundle.Aliases = aliases
 	}
 
 	return bundle, nil
@@ -495,6 +563,13 @@ func (self *Hariti) createRemoteBundle(repository string) (*RemoteBundle, error)
 func (self *Hariti) createLocalBundle(repository string) (*LocalBundle, error) {
 	bundle := &LocalBundle{
 		LocalPath: repository,
+		Aliases:   make([]string, 0),
+	}
+	bundle.Name = filepath.Base(bundle.LocalPath)
+	if aliases, err := self.getMetaStringSlice(bundle.Name, metaAliases); err != nil {
+		return nil, err
+	} else {
+		bundle.Aliases = aliases
 	}
 	return bundle, nil
 }

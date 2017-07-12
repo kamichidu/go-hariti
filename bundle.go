@@ -12,6 +12,7 @@ import (
 type Bundle interface {
 	GetName() string
 	GetLocalPath() string
+	GetAliases() []string
 }
 
 type BuildScript struct {
@@ -80,10 +81,16 @@ func (self *RemoteBundle) MarshalYAML() (interface{}, error) {
 
 func (self *RemoteBundle) GetName() string      { return self.Name }
 func (self *RemoteBundle) GetLocalPath() string { return self.LocalPath }
+func (self *RemoteBundle) GetAliases() []string { return self.Aliases }
 
 var _ yaml.Marshaler = (*RemoteBundle)(nil)
 
 type LocalBundle struct {
+	// name
+	Name string `yaml:"-"`
+	// aliases
+	Aliases []string `yaml:"-"`
+	// path
 	LocalPath string `yaml:"path"`
 }
 
@@ -98,6 +105,7 @@ func createLocalBundleFromMap(data map[string]interface{}) (*LocalBundle, error)
 
 func (self *LocalBundle) GetName() string      { return filepath.Base(self.LocalPath) }
 func (self *LocalBundle) GetLocalPath() string { return self.LocalPath }
+func (self *LocalBundle) GetAliases() []string { return self.Aliases }
 
 type Bundles []Bundle
 
