@@ -358,30 +358,11 @@ func (self *Hariti) Enable(repository string) error {
 		return err
 	}
 
-	// create relative links
-	filename := filepath.Join(self.DeployDir(), bundle.GetName())
-	relLink, err := filepath.Rel(filepath.Dir(filename), bundle.GetLocalPath())
-	if err != nil {
-		return err
-	}
-	if info, err := os.Lstat(filename); err != nil {
-		// there's no file, just create new one
-		if err = os.Symlink(relLink, filename); err != nil {
-			return err
-		}
-	} else if info.Mode()&os.ModeSymlink == os.ModeSymlink {
-		// there's a link, just check its state
-		state, err := os.Readlink(filename)
-		if err != nil {
-			return err
-		} else if state != relLink {
-			return fmt.Errorf("%s should be point to %s, but %s", filename, relLink, state)
-		}
-	} else {
-		// there's non-link file
-		return fmt.Errorf("%s is already exists, ignored", filename)
-	}
-	return nil
+	// create link
+	return mklink(
+		bundle.GetLocalPath(),
+		filepath.Join(self.DeployDir(), bundle.GetName()),
+	)
 }
 
 func (self *Hariti) EnableIf(repository string, expr string) error {
