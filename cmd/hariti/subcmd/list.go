@@ -36,7 +36,7 @@ func listAction(c *cli.Context) error {
 			}
 			fmt.Fprintf(w, lineFmt, "Remote", v.Name, enabled, v.EnableIfExpr, v.URL, v.Aliases, dependencies)
 		case *hariti.LocalBundle:
-			fmt.Fprintf(w, lineFmt, "Local", v.GetName(), enabled, "", v.LocalPath, []string{}, []string{})
+			fmt.Fprintf(w, lineFmt, "Local", v.Name, enabled, "", v.LocalPath, v.Aliases, []string{})
 		}
 	}
 
