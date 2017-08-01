@@ -27,11 +27,6 @@ func ErrWriterFromContext(ctx context.Context) io.Writer {
 	return ctx.Value(errWriterContextKey).(io.Writer)
 }
 
-type Logger interface {
-	Print(...interface{})
-	Printf(string, ...interface{})
-}
-
 func WithLogger(parent context.Context, logger Logger) context.Context {
 	return context.WithValue(parent, loggerContextKey, logger)
 }

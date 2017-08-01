@@ -1,15 +1,12 @@
 package subcmd
 
 import (
-	"log"
-
 	"github.com/kamichidu/go-hariti"
 	"github.com/urfave/cli"
 )
 
 func enableAction(c *cli.Context) error {
 	har := c.App.Metadata["hariti"].(*hariti.Hariti)
-	logger := c.App.Metadata["logger"].(*log.Logger)
 
 	expr := c.String("when")
 	for _, arg := range c.Args() {
@@ -20,7 +17,7 @@ func enableAction(c *cli.Context) error {
 			err = har.Enable(arg)
 		}
 		if err != nil {
-			logger.Printf("Error: %s", err)
+			har.Logger.Error(err)
 		}
 	}
 	return nil

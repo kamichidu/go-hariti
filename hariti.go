@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/url"
 	"os"
 	"os/exec"
@@ -31,10 +30,12 @@ type HaritiConfig struct {
 
 type Hariti struct {
 	config *HaritiConfig
+
+	Logger Logger
 }
 
 func NewHariti(config *HaritiConfig) *Hariti {
-	return &Hariti{config}
+	return &Hariti{config, NewStdLogger(ioutil.Discard)}
 }
 
 func (self *Hariti) SetupManagedDirectory() error {
@@ -261,7 +262,7 @@ func (self *Hariti) Get(repository string, update bool, enabled bool) error {
 		ctx := context.Background()
 		ctx = WithWriter(ctx, self.config.Writer)
 		ctx = WithErrWriter(ctx, self.config.ErrWriter)
-		ctx = WithLogger(ctx, log.New(self.config.ErrWriter, "", 0x0))
+		ctx = WithLogger(ctx, self.Logger)
 		if err = vcs.Clone(ctx, rbundle, update); err != nil {
 			return err
 		}
@@ -299,7 +300,7 @@ func (self *Hariti) Remove(repository string, force bool) error {
 		ctx := context.Background()
 		ctx = WithWriter(ctx, self.config.Writer)
 		ctx = WithErrWriter(ctx, self.config.ErrWriter)
-		ctx = WithLogger(ctx, log.New(self.config.ErrWriter, "", 0x0))
+		ctx = WithLogger(ctx, self.Logger)
 		if modified, err := vcs.IsModified(ctx, rbundle); err != nil {
 			return fmt.Errorf("Modification check failure: %s", err)
 		} else if modified {

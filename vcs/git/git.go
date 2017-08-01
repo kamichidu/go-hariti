@@ -20,12 +20,12 @@ func (self *Git) Clone(c context.Context, bundle *hariti.RemoteBundle, update bo
 
 	var cmd *exec.Cmd
 	if info, err := os.Stat(bundle.LocalPath); err != nil {
-		log.Printf("Cloning %s to %s\n", bundle.URL, bundle.LocalPath)
+		log.Infof("Cloning %s to %s\n", bundle.URL, bundle.LocalPath)
 		cmd = exec.Command("git", "clone", "--recursive", bundle.URL.String(), bundle.LocalPath)
 		cmd.Stdout = out
 		cmd.Stderr = errOut
 	} else if info.IsDir() && update {
-		log.Printf("Pulling in %s", bundle.LocalPath)
+		log.Infof("Pulling in %s", bundle.LocalPath)
 		cmd = exec.Command("git", "pull", "--ff", "--ff-only")
 		cmd.Dir = bundle.LocalPath
 		cmd.Stdout = out

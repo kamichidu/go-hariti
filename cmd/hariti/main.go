@@ -55,11 +55,11 @@ func run() int {
 			ErrWriter: c.App.ErrWriter,
 			Verbose:   c.GlobalBool("verbose"),
 		})
+		har.Logger = hariti.NewStdLogger(c.App.ErrWriter)
 		if err := har.SetupManagedDirectory(); err != nil {
 			return err
 		}
 		c.App.Metadata["hariti"] = har
-		c.App.Metadata["logger"] = log.New(c.App.ErrWriter, "", 0x0)
 		return nil
 	}
 

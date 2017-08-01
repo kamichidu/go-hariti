@@ -1,7 +1,6 @@
 package subcmd
 
 import (
-	"log"
 	"sync"
 
 	"github.com/kamichidu/go-hariti"
@@ -10,7 +9,6 @@ import (
 
 func getAction(c *cli.Context) error {
 	har := c.App.Metadata["hariti"].(*hariti.Hariti)
-	logger := c.App.Metadata["logger"].(*log.Logger)
 
 	wg := new(sync.WaitGroup)
 	for _, arg := range c.Args() {
@@ -19,7 +17,7 @@ func getAction(c *cli.Context) error {
 			defer wg.Done()
 
 			if err := har.Get(repository, c.Bool("update"), c.BoolT("disabled")); err != nil {
-				logger.Printf("Error: %s", err)
+				har.Logger.Error(err)
 			}
 		}(arg)
 	}
