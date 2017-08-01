@@ -247,32 +247,46 @@ func (self *Hariti) ClearDependencies(repository string) error {
 	}
 }
 
-func (self *Hariti) Get(repository string, update bool, enabled bool) error {
-	bundle, err := self.CreateBundle(repository)
-	if err != nil {
+func (self *Hariti) Get(ctx context.Context, repository string, update bool, enabled bool) error {
+	logger := LoggerFromContextKey(ctx)
+	errCh := make(chan error, 1)
+	go func() {
+		bundle, err := self.CreateBundle(repository)
+		if err != nil {
+			errCh <- err
+			return
+		}
+
+		// when bundle is a local bundle, no need to clone it
+		if rbundle, ok := bundle.(*RemoteBundle); ok {
+			vcs := DetectVCS(rbundle.URL)
+			if vcs == nil {
+				errCh <- fmt.Errorf("Can't detect vcs type: %s", rbundle.URL)
+				return
+			}
+			ctx := context.Background()
+			ctx = WithWriter(ctx, self.config.Writer)
+			ctx = WithErrWriter(ctx, self.config.ErrWriter)
+			ctx = WithLogger(ctx, logger)
+			if err = vcs.Clone(ctx, rbundle, update); err != nil {
+				errCh <- err
+				return
+			}
+		}
+
+		if !enabled {
+			errCh <- nil
+			return
+		}
+
+		errCh <- self.Enable(repository)
+	}()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-errCh:
 		return err
 	}
-
-	// when bundle is a local bundle, no need to clone it
-	if rbundle, ok := bundle.(*RemoteBundle); ok {
-		vcs := DetectVCS(rbundle.URL)
-		if vcs == nil {
-			return fmt.Errorf("Can't detect vcs type: %s", rbundle.URL)
-		}
-		ctx := context.Background()
-		ctx = WithWriter(ctx, self.config.Writer)
-		ctx = WithErrWriter(ctx, self.config.ErrWriter)
-		ctx = WithLogger(ctx, self.Logger)
-		if err = vcs.Clone(ctx, rbundle, update); err != nil {
-			return err
-		}
-	}
-
-	if !enabled {
-		return nil
-	}
-
-	return self.Enable(repository)
 }
 
 func (self *Hariti) Remove(repository string, force bool) error {

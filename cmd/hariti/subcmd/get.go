@@ -1,6 +1,7 @@
 package subcmd
 
 import (
+	"context"
 	"sync"
 
 	"github.com/kamichidu/go-hariti"
@@ -16,8 +17,12 @@ func getAction(c *cli.Context) error {
 		go func(repository string) {
 			defer wg.Done()
 
-			if err := har.Get(repository, c.Bool("update"), c.BoolT("disabled")); err != nil {
-				har.Logger.Error(err)
+			logger := har.Logger.WithPrefix(repository)
+
+			ctx := context.Background()
+			ctx = hariti.WithLogger(ctx, logger)
+			if err := har.Get(ctx, repository, c.Bool("update"), c.BoolT("disabled")); err != nil {
+				logger.Error(err)
 			}
 		}(arg)
 	}

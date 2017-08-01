@@ -9,8 +9,10 @@ func rmAction(c *cli.Context) error {
 	har := c.App.Metadata["hariti"].(*hariti.Hariti)
 
 	for _, arg := range c.Args() {
+		logger := har.Logger.WithPrefix(arg)
+
 		if err := har.Remove(arg, c.Bool("force")); err != nil {
-			return cli.NewExitError(err, 1)
+			logger.Error(err)
 		}
 	}
 	return nil
