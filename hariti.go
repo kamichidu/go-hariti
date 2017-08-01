@@ -88,17 +88,39 @@ func (self *Hariti) WriteScript(w io.Writer, header []string) error {
 		return err
 	}
 
-	enabledBundles, err := ioutil.ReadDir(self.DeployDir())
-	if err != nil {
-		return err
-	}
-	for _, info := range enabledBundles {
-		pluginDir := filepath.Join(self.DeployDir(), info.Name())
+	var appendRtp func(map[string]struct{}, string) error
+	appendRtp = func(memo map[string]struct{}, name string) error {
+		if _, dup := memo[name]; dup {
+			return fmt.Errorf("Circular dependency: %s", name)
+		}
+		memo[name] = struct{}{}
+
+		dependencies, err := self.getMetaStringSlice(name, metaDependencies)
+		if err != nil {
+			return err
+		}
+		for _, dependency := range dependencies {
+			if err = appendRtp(memo, path.Base(dependency)); err != nil {
+				return err
+			}
+		}
+
+		pluginDir := filepath.Join(self.DeployDir(), name)
 		rtp = append(rtp, pluginDir)
 
 		// has after dir or not
 		if info, err := os.Stat(filepath.Join(pluginDir, "after")); err == nil && info.IsDir() {
 			afterRtp = append(afterRtp, filepath.Join(pluginDir, "after"))
+		}
+		return nil
+	}
+	enabledBundles, err := ioutil.ReadDir(self.DeployDir())
+	if err != nil {
+		return err
+	}
+	for _, info := range enabledBundles {
+		if err = appendRtp(map[string]struct{}{}, info.Name()); err != nil {
+			return err
 		}
 	}
 
