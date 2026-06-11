@@ -1,7 +1,8 @@
 package ast
 
 type File struct {
-	Bundles []BundleDecl
+	Bundles  []BundleDecl
+	Includes []IncludeDecl
 }
 
 type BundleDecl struct {
@@ -15,4 +16,8 @@ type BundleDecl struct {
 type BuildBlock struct {
 	OS       string
 	Commands []string
+}
+
+type IncludeDecl struct {
+	Path string
 }

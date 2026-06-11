@@ -3,7 +3,6 @@ package subcmd
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"path/filepath"
 	"strings"
 
@@ -22,14 +21,9 @@ func dumpGraphAction(c *cli.Context) error {
 		return cli.NewExitError("unsupported config format: only .hariti is supported", 1)
 	}
 
-	src, rErr := ioutil.ReadFile(filePath)
-	if rErr != nil {
-		return cli.NewExitError(fmt.Errorf("failed to read dsl file: %w", rErr), 1)
-	}
-
-	g, err := dsl.ParseGraph(filePath, src)
+	g, err := dsl.LoadGraph(filePath)
 	if err != nil {
-		return cli.NewExitError(fmt.Errorf("failed to parse/convert dsl: %w", err), 1)
+		return cli.NewExitError(fmt.Errorf("failed to load/convert dsl graph: %w", err), 1)
 	}
 
 	enc := json.NewEncoder(c.App.Writer)

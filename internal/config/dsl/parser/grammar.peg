@@ -11,15 +11,23 @@ type enableIfOpt struct {
 }
 }
 
-File = __ list:(decl:BundleDecl __ { return decl, nil })* EOF {
-	var decls []ast.BundleDecl
+File = __ list:(decl:Decl __ { return decl, nil })* EOF {
+	var bundles []ast.BundleDecl
+	var includes []ast.IncludeDecl
 	if list != nil {
 		for _, item := range list.([]interface{}) {
-			decls = append(decls, item.(ast.BundleDecl))
+			switch v := item.(type) {
+			case ast.BundleDecl:
+				bundles = append(bundles, v)
+			case ast.IncludeDecl:
+				includes = append(includes, v)
+			}
 		}
 	}
-	return &ast.File{Bundles: decls}, nil
+	return &ast.File{Bundles: bundles, Includes: includes}, nil
 }
+
+Decl = BundleDecl / IncludeDecl
 
 BundleDecl = _ "use" _ name:BundleName __ opts:(opt:BundleOptions __ { return opt, nil })* {
 	decl := ast.BundleDecl{
@@ -103,6 +111,18 @@ BuildCommand = "-" _ cmd:CommandLine {
 
 CommandLine = [^\r\n]+ {
 	return strings.TrimSpace(string(c.text)), nil
+}
+
+IncludeDecl = _ "include" _ path:IncludePath {
+	return ast.IncludeDecl{Path: path.(string)}, nil
+}
+
+IncludePath = QuotedIncludePath / UnquotedIncludePath
+
+QuotedIncludePath = StringLiteral
+
+UnquotedIncludePath = chars:[a-zA-Z0-9_./\\*%-]+ {
+	return string(c.text), nil
 }
 
 BundleName = chars:[a-zA-Z0-9_./-]+ {
