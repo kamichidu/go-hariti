@@ -9,11 +9,66 @@ import (
 type enableIfOpt struct {
 	expr string
 }
+
+type sourceOpt struct {
+	path string
+}
+
+func buildBundleDecl(name string, blockOpts []interface{}, inlineOpts []interface{}) ast.BundleDecl {
+	decl := ast.BundleDecl{
+		Use: name,
+	}
+
+	var allOpts []interface{}
+	if blockOpts != nil {
+		allOpts = append(allOpts, blockOpts...)
+	}
+	if inlineOpts != nil {
+		allOpts = append(allOpts, inlineOpts...)
+	}
+
+	for _, opt := range allOpts {
+		switch v := opt.(type) {
+		case sourceOpt:
+			decl.Source = &v.path
+		case string:
+			decl.Aliases = append(decl.Aliases, v)
+		case []string:
+			decl.Depends = append(decl.Depends, v...)
+		case enableIfOpt:
+			decl.EnableIf = &v.expr
+		case []ast.BuildBlock:
+			decl.Build = append(decl.Build, v...)
+		}
+	}
+	return decl
+}
+
+func buildPatch(opts []interface{}) ast.BundlePatch {
+	var patch ast.BundlePatch
+	for _, opt := range opts {
+		switch v := opt.(type) {
+		case sourceOpt:
+			patch.Source = &v.path
+		case string:
+			patch.Aliases = append(patch.Aliases, v)
+		case []string:
+			patch.Depends = &v
+		case enableIfOpt:
+			patch.EnableIf = &v.expr
+		case []ast.BuildBlock:
+			patch.Build = &v
+		}
+	}
+	return patch
+}
 }
 
 File = __ list:(decl:Decl __ { return decl, nil })* EOF {
 	var bundles []ast.BundleDecl
 	var includes []ast.IncludeDecl
+	var replaces []ast.ReplaceDecl
+	var merges []ast.MergeDecl
 	if list != nil {
 		for _, item := range list.([]interface{}) {
 			switch v := item.(type) {
@@ -21,36 +76,41 @@ File = __ list:(decl:Decl __ { return decl, nil })* EOF {
 				bundles = append(bundles, v)
 			case ast.IncludeDecl:
 				includes = append(includes, v)
+			case ast.ReplaceDecl:
+				replaces = append(replaces, v)
+			case ast.MergeDecl:
+				merges = append(merges, v)
 			}
 		}
 	}
-	return &ast.File{Bundles: bundles, Includes: includes}, nil
+	return &ast.File{Bundles: bundles, Includes: includes, Replaces: replaces, Merges: merges}, nil
 }
 
-Decl = BundleDecl / IncludeDecl
+Decl = BundleDecl / ReplaceDecl / MergeDecl / IncludeDecl
 
-BundleDecl = _ "use" _ name:BundleName __ opts:(opt:BundleOptions __ { return opt, nil })* {
-	decl := ast.BundleDecl{
-		Use: name.(string),
+BundleDecl = _ "use" _ name:BundleName __ block:BlockOptions? __ opts:(opt:BundleOptions __ { return opt, nil })* {
+	var blockOpts []interface{}
+	if block != nil {
+		blockOpts = block.([]interface{})
 	}
+	var inlineOpts []interface{}
 	if opts != nil {
-		for _, opt := range opts.([]interface{}) {
-			switch v := opt.(type) {
-			case string:
-				decl.Aliases = append(decl.Aliases, v)
-			case []string:
-				decl.Depends = append(decl.Depends, v...)
-			case enableIfOpt:
-				decl.EnableIf = v.expr
-			case []ast.BuildBlock:
-				decl.Build = append(decl.Build, v...)
-			}
-		}
+		inlineOpts = opts.([]interface{})
 	}
-	return decl, nil
+	return buildBundleDecl(name.(string), blockOpts, inlineOpts), nil
 }
 
-BundleOptions = AsOption / DependsOption / EnableIfOption / BuildOption
+BlockOptions = "{" __ opts:(opt:BlockOption __ { return opt, nil })* "}" {
+	return opts, nil
+}
+
+BlockOption = SourceOption / AsOption / DependsOption / EnableIfOption / BuildOption
+
+BundleOptions = BlockOption
+
+SourceOption = _ "source" _ path:IncludePath {
+	return sourceOpt{path: path.(string)}, nil
+}
 
 AsOption = _ "as" _ alias:BundleName {
 	return alias.(string), nil
@@ -121,16 +181,38 @@ IncludePath = QuotedIncludePath / UnquotedIncludePath
 
 QuotedIncludePath = StringLiteral
 
-UnquotedIncludePath = chars:[a-zA-Z0-9_./\\*%-]+ {
+UnquotedIncludePath = chars:[a-zA-Z0-9_./\\*%$@:{}~-]+ {
 	return string(c.text), nil
 }
 
-BundleName = chars:[a-zA-Z0-9_./-]+ {
+BundleName = chars:[a-zA-Z0-9_./\\*%$@:~-]+ {
 	return string(c.text), nil
 }
 
 OSName = chars:[a-zA-Z0-9_*.-]+ {
 	return string(c.text), nil
+}
+
+ReplaceDecl = _ "replace" _ target:BundleName __ "{" __ opts:(opt:BlockOption __ { return opt, nil })* "}" {
+	var blockOpts []interface{}
+	if opts != nil {
+		blockOpts = opts.([]interface{})
+	}
+	return ast.ReplaceDecl{
+		Target: target.(string),
+		Bundle: buildPatch(blockOpts),
+	}, nil
+}
+
+MergeDecl = _ "merge" _ target:BundleName __ "{" __ opts:(opt:BlockOption __ { return opt, nil })* "}" {
+	var blockOpts []interface{}
+	if opts != nil {
+		blockOpts = opts.([]interface{})
+	}
+	return ast.MergeDecl{
+		Target: target.(string),
+		Patch:  buildPatch(blockOpts),
+	}, nil
 }
 
 StringLiteral = DoubleQuotedString / SingleQuotedString

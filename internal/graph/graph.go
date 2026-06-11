@@ -62,23 +62,13 @@ func (b Bundle) GetAliases() []string {
 	return b.Aliases
 }
 
-type Replacement struct {
-	From      string `json:"from"`
-	To        string `json:"to,omitempty"`
-	LocalPath string `json:"local_path,omitempty"`
-}
-
 type Graph struct {
-	Bundles  []Bundle      `json:"bundles"`
-	Replaces []Replacement `json:"replaces"`
+	Bundles []Bundle `json:"bundles"`
 }
 
 func (g *Graph) Normalize() {
 	if g.Bundles == nil {
 		g.Bundles = make([]Bundle, 0)
-	}
-	if g.Replaces == nil {
-		g.Replaces = make([]Replacement, 0)
 	}
 
 	for i := range g.Bundles {
@@ -131,12 +121,6 @@ func Validate(g Graph) error {
 			if dep == "" {
 				return fmt.Errorf("bundle %s contains an empty dependency string", b.ID)
 			}
-		}
-	}
-
-	for _, rep := range g.Replaces {
-		if rep.From == "" {
-			return errors.New("replacement 'from' cannot be empty")
 		}
 	}
 

@@ -9,7 +9,7 @@ This document defines the design principles, implementation boundaries, and deve
 ### Required Reading
 Before making architectural or structural changes, read the following documents:
 1. `docs/architecture.md`
-2. `docs/graph-ir.md`
+2. `docs/graph-ir.adoc`
 3. `docs/generation.md`
 4. `docs/dsl.adoc`
 
@@ -40,6 +40,20 @@ If you believe the architecture is incorrect:
 Do not silently modify the implementation model.
 
 Do not introduce new architectural concepts without discussion.
+
+### Implementation Workflow
+Before starting any implementation work, developers and AI agents must follow this workflow:
+
+1. **Read GEMINI.md**: Review the workspace rules and policies first.
+2. **Read Target Specifications**: Read the relevant design documents based on the scope of changes:
+   - For DSL-related changes, read `docs/dsl.adoc` and `docs/graph-ir.adoc`.
+   - For Graph IR changes, read `docs/graph-ir.adoc`.
+   - For other architectural areas, refer to the corresponding `docs/` design files.
+3. **Never Assume Code is Correct**: If the architecture documents and the current implementation disagree, do not treat the implementation as correct simply because it exists (`Do not infer architectural intent solely from existing code.`).
+4. **Enforce Document Superiority**: When documentation and implementation disagree, do not silently update documentation to match implementation (`When documentation and implementation disagree, do not silently update documentation to match implementation.`).
+5. **Align Code with Architecture**: Report the discrepancy and align the implementation with the defined design specification (`Architecture wins over implementation.`).
+6. **Propose Design Changes First**: If the defined architecture appears incorrect or obsolete, propose an architecture change first (`If architecture appears incorrect, propose an architecture change first.`) and wait for human approval before proceeding.
+7. **Write Tests as Code**: Adding or updating related tests is an inseparable part of the implementation work. A change is incomplete without verification tests.
 
 ### Hariti Constraints
 Hariti is a Vim Runtime Distribution Builder.

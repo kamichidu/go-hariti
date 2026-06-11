@@ -19,7 +19,7 @@ Semantic Consolidation::
 
 == Design Principles and Guarantees
 
-The Graph IR must be designed and maintained in strict compliance with the following scoping rules:
+The Graph IR represents ONLY the fully resolved bundle configuration (the **Resolved Graph**) handed to the backend execution engine. It must be designed and maintained in strict compliance with the following scoping rules:
 
 === Within Scope (What IR Expresses)
 * **Bundle Identity**: The Canonical ID that uniquely identifies a plugin package.
@@ -27,9 +27,9 @@ The Graph IR must be designed and maintained in strict compliance with the follo
 * **Dependencies**: Directional requirements (edges) between plugin bundles.
 * **Enable Condition**: A conditional expression evaluated at Vim startup to determine whether a bundle should be loaded.
 * **Build Steps**: Specific build commands executed after bundle deployment.
-* **Replacement**: Directives overriding a specific bundle identity with another source implementation.
 
 === Out of Scope (What IR Must NOT Express)
+* **Transformation Directives**: Directives such as `replace` and `merge`. These are compile-time configuration modifications handled exclusively within the DSL frontend layer. For their specifications, refer to `docs/dsl.adoc`.
 * **Vimscript Representation**: Concrete Vimscript statements or syntax structures.
 * **RuntimePath / Layout Details**: Concrete directory structures or literal file system paths.
 * **Generation Management**: Sibling directories, timestamp layouts, or symlink switches under `generations/`.
@@ -43,15 +43,13 @@ The Graph IR must be designed and maintained in strict compliance with the follo
 Throughout the codebase and this documentation, the following terms are strictly defined as follows:
 
 Plugin Graph IR::
-  The abstract directed graph structure representing declared plugin dependencies processed by `hariti`.
+  The abstract directed graph structure representing resolved, flat plugin configurations processed by backend components of `hariti`.
 Bundle::
   A node in the Plugin Graph representing a single Vim plugin.
 Source::
   The physical origin of a `Bundle`. It is categorized into remote repositories (`SourceTypeRemote`) and local directories (`SourceTypeLocal`).
 Dependency::
   A directional edge in the Plugin Graph indicating a requirement of one `Bundle` upon another.
-Replacement::
-  Logical rule that transparently overrides a targeted `Bundle` identity with a different physical `Source` implementation.
 
 ---
 
@@ -60,13 +58,12 @@ Replacement::
 The logical structure of the Graph IR consists of the following components:
 
 === Graph
-The root container representing the entire plugin configuration.
+The root container representing the resolved, flat plugin configuration.
 
 [cols="1,2,3", options="header"]
 |===
 | Field Name | Type | Description
 | `Bundles` | `[]Bundle` | List of nodes (`Bundle`) that populate the graph.
-| `Replaces` | `[]Replacement` | List of override/replacement rules.
 |===
 
 === Bundle
@@ -104,17 +101,6 @@ An OS-specific compilation or build command.
 | `Cmd` | `string` | The build command string to execute.
 |===
 
-=== Replacement
-A directional override rule for a bundle.
-
-[cols="1,2,3", options="header"]
-|===
-| Field Name | Type | Description
-| `From` | `string` | The original Canonical ID target of the override.
-| `To` | `string` | The targeted override identity or source representation.
-| `LocalPath` | `string` | The physical local path replacement if mapped to a local directory.
-|===
-
 ---
 
 == Data Transformation and Decision Flow
@@ -122,5 +108,7 @@ A directional override rule for a bundle.
 The `Graph` built from input declarations is processed and evaluated through the following sequential stages:
 
 1. **Input Parsing**: The frontend parser (DSL parser) reads the configuration files and parses them into a syntactical representation (DSL AST).
-2. **Graph IR Construction**: The parsed AST is mapped to the unified `graph.Graph` structure, populating the nodes (bundles), sources, build configurations, and metadata.
-3. **Boundary Translation**: The compiled Graph IR is handed over to the core execution engine (`Sync`, `Lock`, or projection logic). The backend execution layer remains entirely agnostic of specific input syntax patterns or serialization formats.
+2. **Graph IR Construction**: The parsed AST is mapped to an intermediate compilation graph representation, resolving relative includes, loading dependencies, and expanding variables.
+3. **Graph Transformations**: Directives like `replace` and `merge` are applied and resolved.
+4. **Resolved Graph Output**: The final Graph IR is produced containing only flat, resolved `Bundles`. Refer to `docs/dsl.adoc` for details on this transformation stage.
+5. **Boundary Translation**: The compiled Graph IR is handed over to the core execution engine (`Sync`, `Lock`, or projection logic). The backend execution layer remains entirely agnostic of specific input syntax patterns or serialization formats.

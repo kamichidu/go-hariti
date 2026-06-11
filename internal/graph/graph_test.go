@@ -13,9 +13,6 @@ func TestNormalize(t *testing.T) {
 	if g.Bundles == nil || len(g.Bundles) != 0 {
 		t.Error("expected non-nil empty Bundles slice")
 	}
-	if g.Replaces == nil || len(g.Replaces) != 0 {
-		t.Error("expected non-nil empty Replaces slice")
-	}
 
 	g2 := &graph.Graph{
 		Bundles: []graph.Bundle{
@@ -143,17 +140,6 @@ func TestValidate(t *testing.T) {
 							Type: graph.SourceTypeRemote,
 						},
 						Dependencies: []string{""},
-					},
-				},
-			},
-			wantErr: true,
-		},
-		{
-			name: "empty replacement from",
-			graph: graph.Graph{
-				Replaces: []graph.Replacement{
-					{
-						From: "",
 					},
 				},
 			},

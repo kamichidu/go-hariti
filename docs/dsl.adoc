@@ -21,10 +21,31 @@ This separation ensures that compiler-level frontends can evolve independently f
 The initial implementation of the Hariti DSL supports the following syntax structures:
 
 === use
-Declares a plugin bundle to be managed by `hariti`.
+Declares a plugin bundle to be managed by `hariti`. Supports both a **braced block form** and an **unbraced clause form**.
+
+==== Unbraced Clause Form
+Options are written directly under the `use` directive without braces, extending until the next top-level directive (such as `use`, `include`, `replace`, `merge`) or the end of the file.
 [source,hariti]
 ----
 use Shougo/vimproc.vim
+  source ./forks/vimproc
+  as vimproc
+  depends (
+    foo/bar
+  )
+----
+
+==== Braced Block Form
+Options are written inside a curly braced block (`{ ... }`).
+[source,hariti]
+----
+use Shougo/vimproc.vim {
+  source ./forks/vimproc
+  as vimproc
+  depends (
+    foo/bar
+  )
+}
 ----
 
 === as
@@ -96,14 +117,67 @@ Key rules:
 
 ---
 
+== Source Resolution
+
+Hariti separates bundle identity from implementation location.
+
+`use` declares the canonical bundle identity.
+`source` declares where the bundle implementation is obtained from.
+
+When `source` is omitted, the bundle ID is used as the source expression.
+
+[source,hariti]
+----
+use Shougo/vimproc.vim
+
+use my/local-plugin {
+  source ./plugins/local-plugin
+}
+----
+
+=== Source Classification Rules
+
+[cols="1,2,3", options="header"]
+|===
+| Kind | Pattern | Meaning
+
+| Local path
+| `/`, `./`, `../`, `~`, `$VAR`, `${VAR}`
+| Local filesystem path
+
+| Explicit remote URL
+| `http://`, `https://`, `ssh://`
+| Remote repository URL used as-is
+
+| Git SSH shorthand
+| `git@...`
+| Remote Git SSH source used as-is
+
+| GitHub shorthand
+| `owner/repo`
+| Resolved to `https://github.com/owner/repo`
+
+| Vim.org shorthand
+| `name`
+| Resolved to `https://github.com/vim-scripts/name`
+|===
+
+Environment variable expansion is supported only for local-path sources.
+A source using environment variables must start with `$VAR` or `${VAR}`.
+
+Unsupported ambiguous form:
+
+[source,hariti]
+----
+source owner/$REPO
+----
+
+---
+
 == Unsupported & Future Syntax
 
 The following keywords and structures are explicitly unsupported in the current parser phase and are reserved for future compiler stages:
 
-replace::
-  Used for transparent implementation overrides.
-use local::
-  Used for declaring local filesystem-based plugin sources.
 version pin / lockfile syntax::
   Used for locking specific commit revisions or tags.
 
@@ -147,6 +221,81 @@ An OS-specific block containing post-deployment commands.
 
 ---
 
+== Replace and Merge
+
+`replace` and `merge` are graph transformation directives.
+
+They are parsed as DSL declarations, stored in the intermediate compile graph, and applied before the graph is passed to backend components.
+
+Backend components such as sync, generation, lock, and projection must receive a resolved graph that does not contain `replace` or `merge` directives.
+
+=== replace
+
+`replace` fully replaces the bundle configuration while preserving the canonical bundle identity.
+
+[source,hariti]
+----
+replace Shougo/vimproc.vim {
+  source ./forks/vimproc
+  depends (
+    foo/bar
+  )
+  build {
+    on linux
+      - make
+  }
+}
+----
+
+Rules:
+
+* The target ID must already exist in the compile graph.
+* Fields written inside `replace` become the new bundle definition.
+* Fields omitted from `replace` are cleared, not preserved.
+* The canonical bundle ID remains the replace target ID.
+* `replace` is useful when the implementation and dependency set should be completely overridden.
+
+=== merge
+
+`merge` partially overrides the target bundle declaration.
+
+Only fields explicitly written inside the `merge` block are applied.
+Fields not written are preserved from the original bundle.
+
+[source,hariti]
+----
+merge Shougo/vimproc.vim {
+  source ~/src/vimproc
+}
+----
+
+[source,hariti]
+----
+merge osyo-manga/vim-watchdogs {
+  depends (
+    foo/bar
+    bar/baz
+  )
+}
+----
+
+Rules:
+
+* The target ID must already exist in the compile graph.
+* Written fields overwrite the corresponding original fields.
+* Omitted fields keep their original values.
+* `depends (...)` inside `merge` replaces the entire dependency list.
+* `build { ... }` inside `merge` replaces the entire build step list.
+* `enable_if` inside `merge` replaces the original enable condition.
+* `source` inside `merge` replaces the original source.
+* The canonical bundle ID remains the merge target ID.
+
+=== JSON Serialization Rule
+Since `replace` and `merge` are compile-time transformation directives, they must never leak into the Resolved Graph or its serialized outputs. 
+The JSON serialization of the Resolved Graph (e.g., printed by the `dump-graph` command) must completely exclude `replaces` and `merges` fields, ensuring that Graph consumers receive only the resolved plugin configurations.
+
+---
+
 == Boundary Rules
 
 To prevent responsibility leaks and preserve long-term maintainability, the following boundary constraints are strictly enforced:
@@ -163,12 +312,22 @@ To prevent responsibility leaks and preserve long-term maintainability, the foll
 
 Hariti configurations are compiled and processed through the following sequential pipeline stages:
 
-1. **DSL Text**: Raw DSL files (e.g. `.hariti`).
-2. **Parser**: The Pigeon-generated PEG parser parses syntax.
-3. **DSL AST**: The syntactical Abstract Syntax Tree model.
-4. **Graph IR**: The abstract, semantic Plugin Graph representation.
-5. **Normalize**: Stabilization of slices and structural properties.
-6. **Validate**: Post-compilation sanity checks and safety assertions.
+[source,text]
+----
+DSL text
+  -> Parser
+  -> DSL AST
+  -> Compile Graph
+  -> apply replace / merge
+  -> Resolved Graph
+  -> Normalize
+  -> Validate
+  -> Backend
+----
+
+`replace` and `merge` must not leak into backend processing.
+
+Graph consumers must not inspect replacement directives.
 
 ---
 
