@@ -1,0 +1,79 @@
+= Hariti Master Architecture Specification
+:toc: left
+:sectnums:
+
+This document defines the high-level system overview, behavioral paradigms, execution guarantees, and core component responsibilities for the Hariti system.
+
+== Purpose & Philosophy
+
+`hariti` is an automated, reproducible system designed to resolve declared package graphs and construct a reproducible runtime environment for Vim.
+
+Hariti is a **Vim Runtime Distribution Builder**.
+
+=== Architectural Classification
+
+[cols="1,2", options="header"]
+|===
+| What Hariti IS (Roles) | What Hariti IS NOT (Non-Roles)
+
+| **Runtime Distribution Builder**:: Builds a deterministic runtime environment as a discrete, immutable `generation`.
+| **Vim Runtime Framework**:: Hariti does not act as a runtime library or system wrapper within Vim itself.
+
+| **Plugin Graph Resolver**:: Resolves declared plugin dependencies and overrides at compile-time.
+| **Vim Internal Package Manager**:: Hariti does not manage, download, or resolve packages inside Vim.
+
+| **Generation Manager**:: Handles deployment, version transitions, and rollbacks of distribution states.
+| **Resident Daemon**:: Hariti is a single-invocation utility; it does not remain resident in memory.
+|===
+
+---
+
+== Runtime Guarantees and Constraints
+
+To preserve extreme performance and runtime stability, Hariti enforces a strict temporal boundary between **pre-startup preparation (compile-time)** and **Vim runtime (execution-time)**.
+
+=== Pre-Startup Rule
+All heavy, non-deterministic, or network-bound operations must be fully completed before Vim starts.
+
+=== Startup and Runtime Prohibitions
+The following actions are strictly **forbidden** during Vim startup, Vim runtime, or within any asynchronous child processes spawned by Vim:
+* **VCS Operations**: Running operations such as `git clone`, `git fetch`, or `git pull`.
+* **Dependency Resolution**: Calculating or modifying package graphs.
+* **Build Execution**: Compiling native extensions or running post-install scripts.
+* **Runtime Graph Mutation**: Changing the active bundle relationships.
+
+=== Startup and Runtime Permissions
+The only runtime evaluation allowed during Vim startup is the evaluation of `enable_if` expressions (e.g., `has('python3')`, `exists('g:vscode')`). This is a deterministic selection mechanism over a pre-determined, static Plugin Graph; it must never mutate the structure of the Graph itself.
+
+---
+
+== Core Architectural Contracts
+
+=== VCS (Version Control System) Abstraction
+All Version Control System (VCS) operations must be mediated through an abstraction layer. Direct, unmediated executions of VCS binaries are prohibited.
+- **Forbidden**: Calling `exec.Command("git", ...)` directly from arbitrary parts of the codebase.
+- **Contract**: Core modules must interact through the `VCS` interface, with specific operations implemented via adapters (e.g., `GitAdapter`).
+
+=== Lockfile Reproducibility Contract
+The fundamental source of truth inside a Lockfile is the **Commit Revision** (specific commit hash).
+- Tags, branches, and semantic versions are auxiliary metadata and do not guarantee reproducible states.
+- Re-installations and graph synchronizations must pin and verify implementations using specific commit revisions to ensure determinism.
+
+=== Generation Lifecycle and Immutability
+A deployed runtime distribution (referred to as a `generation`) must be treated as **Immutable**.
+* **No In-Place Modifications**: When a configuration is updated, the active generation's directory or files must never be modified in-place.
+* **Timestamp-Based Generations**: A new generation must always be laid out in a unique directory named after a timestamp (e.g., `generations/20260611-103000/`).
+* **Atomic Link Switching**: Activation of new configurations and rollbacks to previous states are managed atomically by updating the target of a `current` symbolic link.
+
+---
+
+== Subsystem Delegations
+
+The detailed specifications of specific subsystems and compiler stages are delegated to their respective design documents:
+
+DSL Frontend Specifications::
+  Refer to `docs/dsl.adoc` for details on the configuration syntax, `include` expansions, relative path resolutions, and AST structures.
+Plugin Graph IR Semantics::
+  Refer to `docs/graph-ir.adoc` for details on the abstract, flat `graph.Graph` semantic representation passed to backend layers.
+Generation and Projection Lifecycle::
+  Refer to `docs/generation.adoc` for details on the file system layouts, immutability transitions, and Vim `runtimepath` projection scripts.

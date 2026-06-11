@@ -8,7 +8,7 @@ This document defines the design principles, implementation boundaries, and deve
 
 ### Required Reading
 Before making architectural or structural changes, read the following documents:
-1. `docs/architecture.md`
+1. `docs/architecture.adoc`
 2. `docs/graph-ir.adoc`
 3. `docs/generation.md`
 4. `docs/dsl.adoc`
