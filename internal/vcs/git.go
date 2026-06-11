@@ -1,11 +1,13 @@
 package vcs
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/kamichidu/go-hariti/internal/graph"
 )
@@ -109,6 +111,33 @@ func (self *Git) CanHandle(ctx context.Context, urlStr string) bool {
 		return false
 	case err := <-errCh:
 		return err == nil
+	}
+}
+
+func (self *Git) HeadRevision(ctx context.Context, bundle graph.Bundle, out, errOut io.Writer) (string, error) {
+	localPath := bundle.Source.Path
+	cmd := exec.Command("git", "rev-parse", "HEAD")
+	cmd.Dir = localPath
+
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = errOut
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- cmd.Run()
+	}()
+	select {
+	case <-ctx.Done():
+		if cmd.Process != nil {
+			cmd.Process.Kill()
+		}
+		return "", ctx.Err()
+	case err := <-errCh:
+		if err != nil {
+			return "", err
+		}
+		return strings.TrimSpace(stdout.String()), nil
 	}
 }
 

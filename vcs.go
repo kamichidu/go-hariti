@@ -11,6 +11,7 @@ type VCS interface {
 	CanHandle(c context.Context, u *url.URL) bool
 	Clone(c context.Context, bundle graph.Bundle, update bool) error
 	IsModified(c context.Context, bundle graph.Bundle) (bool, error)
+	HeadRevision(c context.Context, bundle graph.Bundle) (string, error)
 }
 
 var vcsList []VCS

@@ -68,7 +68,12 @@ func (self *Hariti) DeployDir() string {
 }
 
 func (self *Hariti) RepositoriesDir() string {
-	return filepath.Join(self.config.Directory, "repositories")
+	xdg := os.Getenv("XDG_DATA_HOME")
+	if xdg == "" {
+		home, _ := os.UserHomeDir()
+		xdg = filepath.Join(home, ".local", "share")
+	}
+	return filepath.Join(xdg, "hariti", "repos")
 }
 
 func (self *Hariti) WriteScript(w io.Writer, header []string) error {
@@ -573,4 +578,60 @@ func (self *Hariti) createLocalBundle(repository string) (graph.Bundle, error) {
 		bundle.Aliases = aliases
 	}
 	return bundle, nil
+}
+
+type RepositoryFact struct {
+	BundleID string
+	Revision string
+}
+
+func (self *Hariti) Sync(ctx context.Context, g *graph.Graph, update bool) ([]RepositoryFact, error) {
+	logger := LoggerFromContextKey(ctx)
+	if logger != nil {
+		logger.Infof("Starting repository synchronization...")
+	}
+	facts := make([]RepositoryFact, 0, len(g.Bundles))
+
+	for _, bundle := range g.Bundles {
+		if bundle.Source.Type == graph.SourceTypeLocal {
+			// Local Source check
+			_, err := os.Stat(bundle.Source.Path)
+			if err != nil {
+				return nil, fmt.Errorf("local source path does not exist for bundle %s: %w", bundle.ID, err)
+			}
+			facts = append(facts, RepositoryFact{
+				BundleID: bundle.ID,
+				Revision: "",
+			})
+		} else if bundle.Source.Type == graph.SourceTypeRemote {
+			vcs := DetectVCS(bundle.Source.URL)
+			if vcs == nil {
+				return nil, fmt.Errorf("failed to detect VCS for bundle %s with URL %s", bundle.ID, bundle.Source.URL)
+			}
+
+			// Ensure RepositoriesDir directory exists
+			if err := self.SetupManagedDirectory(); err != nil {
+				return nil, err
+			}
+
+			// Clone / Fetch/Pull
+			err := vcs.Clone(ctx, bundle, update)
+			if err != nil {
+				return nil, fmt.Errorf("failed to clone/update bundle %s: %w", bundle.ID, err)
+			}
+
+			// Revision observation
+			rev, err := vcs.HeadRevision(ctx, bundle)
+			if err != nil {
+				return nil, fmt.Errorf("failed to observe HEAD revision for bundle %s: %w", bundle.ID, err)
+			}
+
+			facts = append(facts, RepositoryFact{
+				BundleID: bundle.ID,
+				Revision: rev,
+			})
+		}
+	}
+
+	return facts, nil
 }
