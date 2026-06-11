@@ -31,7 +31,10 @@ func dumpGraphAction(c *cli.Context) error {
 		Bundles: bundles,
 	}
 
-	g := bundlesFile.ToGraph()
+	g, err := bundlesFile.ToGraph()
+	if err != nil {
+		return cli.NewExitError(fmt.Errorf("failed to convert/validate graph: %w", err), 1)
+	}
 
 	enc := json.NewEncoder(c.App.Writer)
 	enc.SetIndent("", "  ")

@@ -33,7 +33,10 @@ bundles:
 		Bundles: bundles,
 	}
 
-	g := bundlesFile.ToGraph()
+	g, err := bundlesFile.ToGraph()
+	if err != nil {
+		t.Fatalf("failed to convert to graph: %v", err)
+	}
 
 	expected := &graph.Graph{
 		Bundles: []graph.Bundle{
@@ -43,7 +46,7 @@ bundles:
 					Type: graph.SourceTypeRemote,
 					URL:  nil,
 				},
-				Dependencies: nil,
+				Dependencies: []string{},
 				EnableIf:     "",
 				Build: []graph.BuildStep{
 					{OS: "windows", Cmd: "mingw32-make -f make_mingw64.mak"},
@@ -59,9 +62,9 @@ bundles:
 					Type: graph.SourceTypeLocal,
 					Path: "~/sources/vim-hariti/",
 				},
-				Dependencies: nil,
-				Build:        nil,
-				Aliases:      nil,
+				Dependencies: []string{},
+				Build:        []graph.BuildStep{},
+				Aliases:      []string{},
 			},
 		},
 		Replaces: []graph.Replacement{},
@@ -69,5 +72,29 @@ bundles:
 
 	if !reflect.DeepEqual(g, expected) {
 		t.Errorf("expected graph %+v, got %+v", expected, g)
+	}
+}
+
+func TestToGraph_ValidationFail(t *testing.T) {
+	yamlStr := `
+version: "0.0"
+bundles:
+  - name: Shougo/unite.vim
+  - name: Shougo/unite.vim
+`
+
+	bundles, err := yaml.UnmarshalBundles(strings.NewReader(yamlStr))
+	if err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	bundlesFile := &yaml.BundlesFile{
+		Version: "0.0",
+		Bundles: bundles,
+	}
+
+	_, err = bundlesFile.ToGraph()
+	if err == nil {
+		t.Error("expected duplicate bundle ID validation error, but got no error")
 	}
 }

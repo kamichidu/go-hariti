@@ -4,7 +4,7 @@ import (
 	"github.com/kamichidu/go-hariti/internal/graph"
 )
 
-func (b *BundlesFile) ToGraph() *graph.Graph {
+func (b *BundlesFile) ToGraph() (*graph.Graph, error) {
 	g := &graph.Graph{
 		Bundles:  make([]graph.Bundle, 0, len(b.Bundles)),
 		Replaces: make([]graph.Replacement, 0),
@@ -22,7 +22,14 @@ func (b *BundlesFile) ToGraph() *graph.Graph {
 			g.Bundles = append(g.Bundles, convertRemote(item.Remote))
 		}
 	}
-	return g
+
+	g.Normalize()
+
+	if err := graph.Validate(*g); err != nil {
+		return nil, err
+	}
+
+	return g, nil
 }
 
 func convertRemote(rb *RemoteBundle) graph.Bundle {
@@ -51,7 +58,7 @@ func convertRemote(rb *RemoteBundle) graph.Bundle {
 		ID: rb.Name,
 		Source: graph.Source{
 			Type: graph.SourceTypeRemote,
-			URL:  nil, // URL can be parsed if needed, but in DTO it's primarily representation
+			URL:  nil,
 		},
 		Dependencies: deps,
 		EnableIf:     rb.EnableIfExpr,
