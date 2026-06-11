@@ -1,0 +1,29 @@
+use Shougo/vimproc.vim
+  as vimproc
+  build {
+    on windows
+      - mingw32-make -f make_mingw64.mak
+    on mac
+      - make -f make_mac.mak
+    on linux
+      - make -f make_unix.mak
+    on *
+      - echo all
+  }
+
+use Shougo/unite.vim
+  as unite
+
+use osyo-manga/vim-watchdogs
+  as watchdogs
+  depends (
+    thinca/vim-quickrun
+    Shougo/vimproc.vim
+    osyo-manga/shabadou.vim
+    jceb/vim-hier
+    dannyob/quickfixstatus
+  )
+
+use godlygeek/csapprox
+  as csapprox
+  enable_if "!has('gui_running')"

@@ -21,7 +21,7 @@ File = __ list:(decl:BundleDecl __ { return decl, nil })* EOF {
 	return &ast.File{Bundles: decls}, nil
 }
 
-BundleDecl = _ "use" _ name:BundleName __ opts:BundleOptions* __ {
+BundleDecl = _ "use" _ name:BundleName __ opts:(opt:BundleOptions __ { return opt, nil })* {
 	decl := ast.BundleDecl{
 		Use: name.(string),
 	}
