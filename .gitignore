@@ -1,3 +1,5 @@
 vendor/
 /hariti
 /hariti.exe
+.envrc
+/.local/
