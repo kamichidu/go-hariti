@@ -1,0 +1,130 @@
+{
+package parser
+
+import (
+	"strings"
+	"github.com/kamichidu/go-hariti/internal/config/dsl/ast"
+)
+
+type enableIfOpt struct {
+	expr string
+}
+}
+
+File = __ list:(decl:BundleDecl __ { return decl, nil })* EOF {
+	var decls []ast.BundleDecl
+	if list != nil {
+		for _, item := range list.([]interface{}) {
+			decls = append(decls, item.(ast.BundleDecl))
+		}
+	}
+	return &ast.File{Bundles: decls}, nil
+}
+
+BundleDecl = _ "use" _ name:BundleName __ opts:BundleOptions* __ {
+	decl := ast.BundleDecl{
+		Use: name.(string),
+	}
+	if opts != nil {
+		for _, opt := range opts.([]interface{}) {
+			switch v := opt.(type) {
+			case string:
+				decl.Aliases = append(decl.Aliases, v)
+			case []string:
+				decl.Depends = append(decl.Depends, v...)
+			case enableIfOpt:
+				decl.EnableIf = v.expr
+			case []ast.BuildBlock:
+				decl.Build = append(decl.Build, v...)
+			}
+		}
+	}
+	return decl, nil
+}
+
+BundleOptions = AsOption / DependsOption / EnableIfOption / BuildOption
+
+AsOption = _ "as" _ alias:BundleName {
+	return alias.(string), nil
+}
+
+DependsOption = _ "depends" __ "(" __ names:DependsList __ ")" {
+	return names, nil
+}
+
+DependsList = list:(name:BundleName __ { return name, nil })* {
+	var names []string
+	if list != nil {
+		for _, item := range list.([]interface{}) {
+			names = append(names, item.(string))
+		}
+	}
+	return names, nil
+}
+
+EnableIfOption = _ "enable_if" _ expr:StringLiteral {
+	return enableIfOpt{expr: expr.(string)}, nil
+}
+
+BuildOption = _ "build" __ "{" __ blocks:BuildBlockList __ "}" {
+	return blocks, nil
+}
+
+BuildBlockList = list:(block:BuildBlock __ { return block, nil })* {
+	var blocks []ast.BuildBlock
+	if list != nil {
+		for _, item := range list.([]interface{}) {
+			blocks = append(blocks, item.(ast.BuildBlock))
+		}
+	}
+	return blocks, nil
+}
+
+BuildBlock = "on" _ osName:OSName __ cmds:BuildCommandList {
+	return ast.BuildBlock{
+		OS:       osName.(string),
+		Commands: cmds.([]string),
+	}, nil
+}
+
+BuildCommandList = list:(cmd:BuildCommand __ { return cmd, nil })+ {
+	var cmds []string
+	if list != nil {
+		for _, item := range list.([]interface{}) {
+			cmds = append(cmds, item.(string))
+		}
+	}
+	return cmds, nil
+}
+
+BuildCommand = "-" _ cmd:CommandLine {
+	return cmd.(string), nil
+}
+
+CommandLine = [^\r\n]+ {
+	return strings.TrimSpace(string(c.text)), nil
+}
+
+BundleName = chars:[a-zA-Z0-9_./-]+ {
+	return string(c.text), nil
+}
+
+OSName = chars:[a-zA-Z0-9_*.-]+ {
+	return string(c.text), nil
+}
+
+StringLiteral = DoubleQuotedString / SingleQuotedString
+
+DoubleQuotedString = '"' [^"\r\n]* '"' {
+	return string(c.text[1:len(c.text)-1]), nil
+}
+
+SingleQuotedString = "'" [^'\r\n]* "'" {
+	return string(c.text[1:len(c.text)-1]), nil
+}
+
+_ = [ \t]*
+
+__ = [ \t\r\n]*
+
+EOF = !.

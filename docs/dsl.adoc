@@ -1,0 +1,164 @@
+= Hariti DSL Design Specification
+:toc: left
+:sectnums:
+
+This document defines the architectural design, syntax rules, Abstract Syntax Tree (AST) contracts, and compilation boundary policies for the Hariti Configuration Domain Specific Language (DSL).
+
+== Purpose
+
+The Hariti DSL serves strictly as an input configuration format, not the internal execution model. It enforces the repository's foundational principle: "Separation of Input Format and Internal Model" (`Input Format != Internal Model`).
+
+The DSL is processed through a structured pipeline:
+1. The DSL text is parsed into a syntactical representation called the **DSL AST**.
+2. The DSL AST is compiled and transformed into the semantic representation called the **Graph IR**.
+
+This separation ensures that compiler-level frontends can evolve independently from core graph-processing engine features.
+
+---
+
+== Supported Syntax
+
+The initial implementation of the Hariti DSL supports the following syntax structures:
+
+=== use
+Declares a plugin bundle to be managed by `hariti`.
+[source,hariti]
+----
+use Shougo/vimproc.vim
+----
+
+=== as
+Registers human-readable alias names for the associated bundle.
+[source,hariti]
+----
+use Shougo/vimproc.vim
+  as vimproc
+----
+
+=== depends
+Lists directional dependencies between bundles in a parenthesized block.
+[source,hariti]
+----
+use osyo-manga/vim-watchdogs
+  depends (
+    thinca/vim-quickrun
+    Shougo/vimproc.vim
+  )
+----
+
+=== enable_if
+Specifies conditional expression strings evaluated at Vim startup to dynamically control loading.
+[source,hariti]
+----
+use godlygeek/csapprox
+  enable_if "!has('gui_running')"
+----
+
+=== build (with on <os> and on *)
+Defines OS-specific commands executed post-deployment. OS values can target individual operating systems (`windows`, `mac`, `linux`) or match all environments (`*`).
+[source,hariti]
+----
+use Shougo/vimproc.vim
+  build {
+    on windows
+      - mingw32-make -f make_mingw64.mak
+    on mac
+      - make -f make_mac.mak
+    on linux
+      - make -f make_unix.mak
+    on *
+      - echo all
+  }
+----
+
+---
+
+== Unsupported & Future Syntax
+
+The following keywords and structures are explicitly unsupported in the current parser phase and are reserved for future compiler stages:
+
+include::
+  Used for splitting configuration files into multiple files.
+replace::
+  Used for transparent implementation overrides.
+use local::
+  Used for declaring local filesystem-based plugin sources.
+version pin / lockfile syntax::
+  Used for locking specific commit revisions or tags.
+
+---
+
+== AST Design
+
+The AST types represent the direct syntactical structure of the DSL. They are located inside `internal/config/dsl/ast` and consist of the following models:
+
+=== File
+The root container representing a compiled DSL configuration file.
+
+[cols="1,2,3", options="header"]
+|===
+| Field Name | Type | Responsibility
+| `Bundles` | `[]BundleDecl` | Lists all parsed plugin bundle declarations inside the file.
+|===
+
+=== BundleDecl
+An individual bundle declaration and its syntax clauses.
+
+[cols="1,2,3", options="header"]
+|===
+| Field Name | Type | Responsibility
+| `Use` | `string` | The declared plugin identifier or VCS name (e.g. `owner/repo`).
+| `Aliases` | `[]string` | Registered alias strings mapped via `as` clauses.
+| `Depends` | `[]string` | Names of other plugin dependencies parsed from `depends` lists.
+| `EnableIf` | `string` | Condition expression string extracted from `enable_if` clauses.
+| `Build` | `[]BuildBlock` | Build rules parsed from the `build` block.
+|===
+
+=== BuildBlock
+An OS-specific block containing post-deployment commands.
+
+[cols="1,2,3", options="header"]
+|===
+| Field Name | Type | Responsibility
+| `OS` | `string` | Target operating system string (e.g. `linux`, `windows`, `mac`, `*`).
+| `Commands` | `[]string` | Sequential list of commands prefix-marked with `-` under this block.
+|===
+
+---
+
+== Boundary Rules
+
+To prevent responsibility leaks and preserve long-term maintainability, the following boundary constraints are strictly enforced:
+
+* **Syntax-Only Parser**: The `dsl` parser's single responsibility is mapping DSL text into a `dsl.ast` representation (`Parser responsibility = Syntax -> AST`).
+* **Zero Semantic Dependencies**: The parser package and its generated structures must never import `internal/graph`. The parser is entirely agnostic of core execution meanings.
+* **Separation of Concerns**: The AST represents "How it is declared" (syntax), whereas the Graph IR represents "What it means" (semantics).
+* **Graph-Level Safeguards**: Graph semantic normalization and validation are the responsibility of the Graph package, and are triggered only *after* transforming the AST (or DTO) into a Graph representation.
+
+---
+
+== Data Transformation Flow
+
+Hariti configurations are compiled and processed through the following sequential pipeline stages:
+
+1. **DSL Text**: Raw DSL files (e.g. `.hariti`).
+2. **Parser**: The Pigeon-generated PEG parser parses syntax.
+3. **DSL AST**: The syntactical Abstract Syntax Tree model.
+4. **Graph IR**: The abstract, semantic Plugin Graph representation.
+5. **Normalize**: Stabilization of slices and structural properties.
+6. **Validate**: Post-compilation sanity checks and safety assertions.
+
+---
+
+== Non-Goals
+
+The following activities must never be performed within the Parser layer:
+
+Dependency Resolution::
+  The parser does not analyze, sort, or resolve bundle dependencies.
+Replace Overrides::
+  The parser does not evaluate or apply `replace` overrides.
+VCS and Git Operations::
+  The parser does not communicate with the file system, network, or Git commands.
+RuntimePath Generation::
+  The parser does not generate Vim script runtime path projection files.

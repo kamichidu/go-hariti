@@ -11,6 +11,7 @@ Before making architectural or structural changes, read the following documents:
 1. `docs/architecture.md`
 2. `docs/graph-ir.md`
 3. `docs/generation.md`
+4. `docs/dsl.adoc`
 
 These documents are normative.
 
