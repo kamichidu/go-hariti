@@ -1,0 +1,126 @@
+= Plugin Graph IR Specification
+:toc: left
+:sectnums:
+
+This document defines the architectural design, specifications, and boundary contracts for the Plugin Graph Intermediate Representation (IR) in `hariti`.
+
+== Purpose (Why We Need Graph IR)
+
+The Graph IR was introduced to enforce one of `hariti`'s core design principles: "Separation of Input Format and Internal Model" (`Input Format != Internal Model`).
+
+The introduction of the Graph IR achieves the following objectives:
+
+Decoupling::
+  Completely decouples the frontend layer responsible for parsing configurations (the existing YAML format or future DSL) from the backend layer responsible for synchronization, generation, and projection (`Sync`, `Lock`, `Generation`, `Projector`).
+Semantic Consolidation::
+  Consolidates the semantic representation of the "directed plugin dependency graph" into a single, unified structure, regardless of the input format source.
+
+---
+
+== Design Principles and Guarantees
+
+The Graph IR must be designed and maintained in strict compliance with the following scoping rules:
+
+=== Within Scope (What IR Expresses)
+* **Bundle Identity**: The Canonical ID that uniquely identifies a plugin package.
+* **Source**: The location from which the plugin is retrieved (remote VCS repository or local directory path).
+* **Dependencies**: Directional requirements (edges) between plugin bundles.
+* **Enable Condition**: A conditional expression evaluated at Vim startup to determine whether a bundle should be loaded.
+* **Build Steps**: Specific build commands executed after bundle deployment.
+* **Replacement**: Directives overriding a specific bundle identity with another source implementation.
+
+=== Out of Scope (What IR Must NOT Express)
+* **Vimscript Representation**: Concrete Vimscript statements or syntax structures.
+* **RuntimePath / Layout Details**: Concrete directory structures or literal file system paths.
+* **Generation Management**: Sibling directories, timestamp layouts, or symlink switches under `generations/`.
+* **Lockfile Representation**: YAML/JSON serialization schemas of lockfiles.
+* **VCS Command Details**: Concrete shell execution strings or parameterizations like `git clone --recursive`.
+
+---
+
+== Semantic Definitions
+
+Throughout the codebase and this documentation, the following terms are strictly defined as follows:
+
+Plugin Graph IR::
+  The abstract directed graph structure representing declared plugin dependencies processed by `hariti`.
+Bundle::
+  A node in the Plugin Graph representing a single Vim plugin.
+Source::
+  The physical origin of a `Bundle`. It is categorized into remote repositories (`SourceTypeRemote`) and local directories (`SourceTypeLocal`).
+Dependency::
+  A directional edge in the Plugin Graph indicating a requirement of one `Bundle` upon another.
+Replacement::
+  Logical rule that transparently overrides a targeted `Bundle` identity with a different physical `Source` implementation.
+
+---
+
+== Logical Structure
+
+The logical structure of the Graph IR consists of the following components:
+
+=== Graph
+The root container representing the entire plugin configuration.
+
+[cols="1,2,3", options="header"]
+|===
+| Field Name | Type | Description
+| `Bundles` | `[]Bundle` | List of nodes (`Bundle`) that populate the graph.
+| `Replaces` | `[]Replacement` | List of override/replacement rules.
+|===
+
+=== Bundle
+An individual plugin node in the graph.
+
+[cols="1,2,3", options="header"]
+|===
+| Field Name | Type | Description
+| `ID` | `string` | The Canonical ID uniquely identifying the plugin.
+| `Source` | `Source` | Origin location and storage details for the bundle.
+| `Dependencies` | `[]string` | Canonical IDs of other bundles that this bundle depends on.
+| `EnableIf` | `string` | An expression string used to dynamically evaluate activation at startup.
+| `Build` | `[]BuildStep` | Custom compilation/execution commands triggered after deployment.
+| `Aliases` | `[]string` | Human-readable alias names registered for this bundle.
+|===
+
+=== Source
+A representation of the bundle's origin.
+
+[cols="1,2,3", options="header"]
+|===
+| Field Name | Type | Description
+| `Type` | `SourceType` | Enumerated source type (`SourceTypeRemote` or `SourceTypeLocal`).
+| `URL` | `*url.URL` | The VCS repository URL (for remote sources).
+| `Path` | `string` | The path to the local directory (for local sources) or the cache directory path (for remote sources).
+|===
+
+=== BuildStep
+An OS-specific compilation or build command.
+
+[cols="1,2,3", options="header"]
+|===
+| Field Name | Type | Description
+| `OS` | `string` | Target operating system for the build execution (`windows`, `mac`, `linux`, `all`).
+| `Cmd` | `string` | The build command string to execute.
+|===
+
+=== Replacement
+A directional override rule for a bundle.
+
+[cols="1,2,3", options="header"]
+|===
+| Field Name | Type | Description
+| `From` | `string` | The original Canonical ID target of the override.
+| `To` | `string` | The targeted override identity or source representation.
+| `LocalPath` | `string` | The physical local path replacement if mapped to a local directory.
+|===
+
+---
+
+== Data Transformation and Decision Flow
+
+The `Graph` built from input declarations is processed and evaluated through the following sequential stages:
+
+1. **Input Parsing**: The frontend parser (YAML DTO or future DSL parser) reads the configuration files and deserializes them into intermediate DTOs.
+2. **Graph IR Construction**: The intermediate DTOs are mapped to the unified `graph.Graph` structure, populating the nodes (bundles), sources, build configurations, and metadata.
+3. **Boundary Translation**: The compiled Graph IR is handed over to the core execution engine (`Sync`, `Lock`, or projection logic). The backend execution layer remains entirely agnostic of specific input syntax patterns or serialization formats.
