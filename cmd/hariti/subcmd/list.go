@@ -5,6 +5,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/kamichidu/go-hariti"
+	"github.com/kamichidu/go-hariti/internal/graph"
 	"github.com/urfave/cli"
 )
 
@@ -28,15 +29,14 @@ func listAction(c *cli.Context) error {
 	fmt.Fprintf(w, lineFmt, "Kind", "Name", "Enabled", "EnabledIf", "URL/Path", "Aliases", "Dependencies")
 	for _, bundle := range bundles {
 		enabled := har.IsEnabled(bundle)
-		switch v := bundle.(type) {
-		case *hariti.RemoteBundle:
-			dependencies := make([]string, 0)
-			for _, dependency := range v.Dependencies {
-				dependencies = append(dependencies, dependency.GetName())
+		if bundle.Source.Type == graph.SourceTypeRemote {
+			urlStr := ""
+			if bundle.Source.URL != nil {
+				urlStr = bundle.Source.URL.String()
 			}
-			fmt.Fprintf(w, lineFmt, "Remote", v.Name, enabled, v.EnableIfExpr, v.URL, v.Aliases, dependencies)
-		case *hariti.LocalBundle:
-			fmt.Fprintf(w, lineFmt, "Local", v.Name, enabled, "", v.LocalPath, v.Aliases, []string{})
+			fmt.Fprintf(w, lineFmt, "Remote", bundle.ID, enabled, bundle.EnableIf, urlStr, bundle.Aliases, bundle.Dependencies)
+		} else {
+			fmt.Fprintf(w, lineFmt, "Local", bundle.ID, enabled, "", bundle.Source.Path, bundle.Aliases, []string{})
 		}
 	}
 

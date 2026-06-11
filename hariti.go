@@ -13,6 +13,8 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+
+	"github.com/kamichidu/go-hariti/internal/graph"
 )
 
 const (
@@ -39,14 +41,6 @@ func NewHariti(config *HaritiConfig) *Hariti {
 }
 
 func (self *Hariti) SetupManagedDirectory() error {
-	// + {dir}/
-	// |  + repositories/
-	// |  | + repo/
-	// |  | + repo/
-	// |  + deploy/
-	// |  | - link
-	// |  | - link
-	// |  + meta/
 	directories := []string{
 		self.config.Directory,
 		self.MetaDir(),
@@ -148,7 +142,6 @@ func (self *Hariti) WriteScript(w io.Writer, header []string) error {
 func (self *Hariti) vimNativeRuntimeDirs() (rtp []string, afterRtp []string, err error) {
 	buf := new(bytes.Buffer)
 
-	// vim -u NONE -i NONE -n -N --cmd "echo &runtimepath" --cmd "q!" 3>&1 1>&2 2>&3 3>&-
 	cmd := exec.Command("vim", "--not-a-term", "-N", "-n", "--noplugin", "-i", "NONE", "-u", "NONE", "-U", "NONE", "--cmd", "echo &runtimepath", "--cmd", "q!")
 	cmd.Stdout = ioutil.Discard
 	cmd.Stderr = buf
@@ -217,10 +210,10 @@ func (self *Hariti) AddDependency(repository string, dependency string) error {
 		return err
 	}
 
-	if rbundle, ok := bundle.(*RemoteBundle); ok {
+	if bundle.Source.Type == graph.SourceTypeRemote {
 		dependencies := make([]string, 0)
-		for _, dep := range rbundle.Dependencies {
-			dependencies = append(dependencies, dep.URL.String())
+		for _, dep := range bundle.Dependencies {
+			dependencies = append(dependencies, dep)
 		}
 		return self.addMetaVar(bundle.GetName(), metaDependencies, append(dependencies, dependency))
 	} else {
@@ -234,23 +227,22 @@ func (self *Hariti) RemoveDependency(repository string, dependency string) error
 		return err
 	}
 
-	if rbundle, ok := bundle.(*RemoteBundle); ok {
+	if bundle.Source.Type == graph.SourceTypeRemote {
 		removalBundle, err := self.CreateBundle(dependency)
 		if err != nil {
 			return err
 		}
-		removalRBundle, ok := removalBundle.(*RemoteBundle)
-		if !ok {
+		if removalBundle.Source.Type != graph.SourceTypeRemote {
 			return nil
 		}
 
 		filtered := make([]string, 0)
-		for _, dep := range rbundle.Dependencies {
-			if dep.URL.String() != removalRBundle.URL.String() {
-				filtered = append(filtered, dep.URL.String())
+		for _, dep := range bundle.Dependencies {
+			if dep != removalBundle.ID {
+				filtered = append(filtered, dep)
 			}
 		}
-		return self.addMetaVar(rbundle.Name, metaDependencies, filtered)
+		return self.addMetaVar(bundle.ID, metaDependencies, filtered)
 	} else {
 		return nil
 	}
@@ -262,8 +254,8 @@ func (self *Hariti) ClearDependencies(repository string) error {
 		return err
 	}
 
-	if rbundle, ok := bundle.(*RemoteBundle); ok {
-		return self.addMetaVar(rbundle.Name, metaDependencies, []string{})
+	if bundle.Source.Type == graph.SourceTypeRemote {
+		return self.addMetaVar(bundle.ID, metaDependencies, []string{})
 	} else {
 		return nil
 	}
@@ -280,17 +272,17 @@ func (self *Hariti) Get(ctx context.Context, repository string, update bool, ena
 		}
 
 		// when bundle is a local bundle, no need to clone it
-		if rbundle, ok := bundle.(*RemoteBundle); ok {
-			vcs := DetectVCS(rbundle.URL)
+		if bundle.Source.Type == graph.SourceTypeRemote {
+			vcs := DetectVCS(bundle.Source.URL)
 			if vcs == nil {
-				errCh <- fmt.Errorf("Can't detect vcs type: %s", rbundle.URL)
+				errCh <- fmt.Errorf("Can't detect vcs type: %s", bundle.Source.URL)
 				return
 			}
 			ctx := context.Background()
 			ctx = WithWriter(ctx, self.config.Writer)
 			ctx = WithErrWriter(ctx, self.config.ErrWriter)
 			ctx = WithLogger(ctx, logger)
-			if err = vcs.Clone(ctx, rbundle, update); err != nil {
+			if err = vcs.Clone(ctx, bundle, update); err != nil {
 				errCh <- err
 				return
 			}
@@ -321,41 +313,39 @@ func (self *Hariti) Remove(repository string, force bool) error {
 		return err
 	}
 
-	// when bundle is a local bundle, we never delete an original
-	rbundle, ok := bundle.(*RemoteBundle)
-	if !ok {
+	if bundle.Source.Type != graph.SourceTypeRemote {
 		return nil
 	}
 
 	if !force {
 		// check repository modified
-		vcs := DetectVCS(rbundle.URL)
+		vcs := DetectVCS(bundle.Source.URL)
 		if vcs == nil {
-			return fmt.Errorf("Can't detect vcs type: %s", rbundle.URL)
+			return fmt.Errorf("Can't detect vcs type: %s", bundle.Source.URL)
 		}
 		ctx := context.Background()
 		ctx = WithWriter(ctx, self.config.Writer)
 		ctx = WithErrWriter(ctx, self.config.ErrWriter)
 		ctx = WithLogger(ctx, self.Logger)
-		if modified, err := vcs.IsModified(ctx, rbundle); err != nil {
+		if modified, err := vcs.IsModified(ctx, bundle); err != nil {
 			return fmt.Errorf("Modification check failure: %s", err)
 		} else if modified {
-			return fmt.Errorf("Can't remove modified bundle %s", rbundle.LocalPath)
+			return fmt.Errorf("Can't remove modified bundle %s", bundle.Source.Path)
 		}
 	}
-	if err := os.RemoveAll(rbundle.LocalPath); err != nil {
+	if err := os.RemoveAll(bundle.Source.Path); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (self *Hariti) List() ([]Bundle, error) {
+func (self *Hariti) List() ([]graph.Bundle, error) {
 	// under the repositories dir, that's remote bundles
 	children, err := ioutil.ReadDir(self.RepositoriesDir())
 	if err != nil {
 		return nil, err
 	}
-	bundles := make([]Bundle, 0)
+	bundles := make([]graph.Bundle, 0)
 	for _, child := range children {
 		u, err := url.QueryUnescape(child.Name())
 		if err != nil {
@@ -512,7 +502,7 @@ func (self *Hariti) Disable(repository string) error {
 	return nil
 }
 
-func (self *Hariti) CreateBundle(repository string) (Bundle, error) {
+func (self *Hariti) CreateBundle(repository string) (graph.Bundle, error) {
 	if strings.HasPrefix(repository, "file://") {
 		return self.createLocalBundle(repository)
 	} else if _, err := os.Stat(repository); err == nil {
@@ -522,55 +512,49 @@ func (self *Hariti) CreateBundle(repository string) (Bundle, error) {
 	}
 }
 
-func (self *Hariti) createRemoteBundle(repository string) (*RemoteBundle, error) {
+func (self *Hariti) createRemoteBundle(repository string) (graph.Bundle, error) {
 	var err error
 
-	bundle := &RemoteBundle{
-		Aliases:      make([]string, 0),
-		Dependencies: make([]*RemoteBundle, 0),
-	}
+	var bundle graph.Bundle
+	bundle.Source.Type = graph.SourceTypeRemote
+
+	var parsedURL *url.URL
 	if strings.HasPrefix(repository, "https://") || strings.HasPrefix(repository, "http://") {
 		// fqdn like "https://github.com/kamichidu/vim-hariti"
-		bundle.URL, err = url.ParseRequestURI(repository)
+		parsedURL, err = url.ParseRequestURI(repository)
 		if err != nil {
-			return nil, err
+			return bundle, err
 		}
 	} else if matched, err := path.Match("*/*", repository); matched || err != nil {
-		// generally form like "kamichidu/vim-hariti"
 		if err != nil {
 			// program error
 			panic(err)
 		}
-		bundle.URL, err = url.ParseRequestURI("https://" + path.Join("github.com", repository))
+		parsedURL, err = url.ParseRequestURI("https://" + path.Join("github.com", repository))
 		if err != nil {
-			return nil, err
+			return bundle, err
 		}
 	} else {
 		// shortest form like "vim-hariti"
-		bundle.URL, err = url.ParseRequestURI("https://" + path.Join("github.com", "vim-scripts", repository))
+		parsedURL, err = url.ParseRequestURI("https://" + path.Join("github.com", "vim-scripts", repository))
 		if err != nil {
-			return nil, err
+			return bundle, err
 		}
 	}
 
-	bundle.Name = path.Base(bundle.URL.String())
-	bundle.LocalPath = filepath.Join(self.RepositoriesDir(), url.QueryEscape(bundle.URL.String()))
-	if bundle.EnableIfExpr, err = self.getMetaString(bundle.Name, metaEnableIfExpr); err != nil {
-		return nil, err
+	bundle.ID = path.Base(parsedURL.String())
+	bundle.Source.URL = parsedURL
+	bundle.Source.Path = filepath.Join(self.RepositoriesDir(), url.QueryEscape(parsedURL.String()))
+	if bundle.EnableIf, err = self.getMetaString(bundle.ID, metaEnableIfExpr); err != nil {
+		return bundle, err
 	}
-	if dependencies, err := self.getMetaStringSlice(bundle.Name, metaDependencies); err != nil {
-		return nil, err
+	if dependencies, err := self.getMetaStringSlice(bundle.ID, metaDependencies); err != nil {
+		return bundle, err
 	} else {
-		for _, dependency := range dependencies {
-			depBundle, err := self.createRemoteBundle(dependency)
-			if err != nil {
-				return nil, err
-			}
-			bundle.Dependencies = append(bundle.Dependencies, depBundle)
-		}
+		bundle.Dependencies = dependencies
 	}
-	if aliases, err := self.getMetaStringSlice(bundle.Name, metaAliases); err != nil {
-		return nil, err
+	if aliases, err := self.getMetaStringSlice(bundle.ID, metaAliases); err != nil {
+		return bundle, err
 	} else {
 		bundle.Aliases = aliases
 	}
@@ -578,14 +562,13 @@ func (self *Hariti) createRemoteBundle(repository string) (*RemoteBundle, error)
 	return bundle, nil
 }
 
-func (self *Hariti) createLocalBundle(repository string) (*LocalBundle, error) {
-	bundle := &LocalBundle{
-		LocalPath: repository,
-		Aliases:   make([]string, 0),
-	}
-	bundle.Name = filepath.Base(bundle.LocalPath)
-	if aliases, err := self.getMetaStringSlice(bundle.Name, metaAliases); err != nil {
-		return nil, err
+func (self *Hariti) createLocalBundle(repository string) (graph.Bundle, error) {
+	var bundle graph.Bundle
+	bundle.Source.Type = graph.SourceTypeLocal
+	bundle.Source.Path = repository
+	bundle.ID = filepath.Base(bundle.Source.Path)
+	if aliases, err := self.getMetaStringSlice(bundle.ID, metaAliases); err != nil {
+		return bundle, err
 	} else {
 		bundle.Aliases = aliases
 	}

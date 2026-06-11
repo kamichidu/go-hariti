@@ -1,33 +1,35 @@
-package hariti
+package hariti_test
 
 import (
 	"bytes"
-	"net/url"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/kamichidu/go-hariti/internal/config/yaml"
 	"github.com/kr/pretty"
 	"github.com/pmezard/go-difflib/difflib"
 )
 
 func TestMarshalBundles(t *testing.T) {
-	bundles := Bundles{
-		&RemoteBundle{
-			Name:         "fuga",
-			URL:          &url.URL{RawPath: "hoge/fuga"},
-			LocalPath:    "lp",
-			Aliases:      []string{"as"},
-			Dependencies: []*RemoteBundle{},
+	bundles := yaml.Bundles{
+		yaml.Bundle{
+			Remote: &yaml.RemoteBundle{
+				Name:         "fuga",
+				Aliases:      []string{"as"},
+				Dependencies: []*yaml.RemoteBundle{},
+			},
 		},
-		&LocalBundle{
-			LocalPath: "~/sources/vim-plugins/vim-hariti/",
+		yaml.Bundle{
+			Local: &yaml.LocalBundle{
+				Path: "~/sources/vim-plugins/vim-hariti/",
+			},
 		},
 	}
 
 	buffer := new(bytes.Buffer)
-	err := MarshalBundles(buffer, bundles)
+	err := yaml.MarshalBundles(buffer, bundles)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,43 +57,53 @@ func TestUnmarshalBundles(t *testing.T) {
 	}
 	defer r.Close()
 
-	bundles, err := UnmarshalBundles(r)
+	bundles, err := yaml.UnmarshalBundles(r)
 	if err != nil {
 		t.Fatalf("UnmarshalBundles: %s", err)
 	}
-	expected := Bundles{
-		&RemoteBundle{
-			Name:    "Shougo/vimproc.vim",
-			Aliases: []string{"vimproc"},
-			BuildScript: &BuildScript{
-				Windows: "mingw32-make -f make_mingw64.mak",
-				Mac:     "make -f make_mac.mak",
-				Linux:   "make -f make_unix.mak",
-				All:     "echo all",
+	expected := yaml.Bundles{
+		yaml.Bundle{
+			Remote: &yaml.RemoteBundle{
+				Name:    "Shougo/vimproc.vim",
+				Aliases: []string{"vimproc"},
+				BuildScript: &yaml.BuildScript{
+					Windows: "mingw32-make -f make_mingw64.mak",
+					Mac:     "make -f make_mac.mak",
+					Linux:   "make -f make_unix.mak",
+					All:     "echo all",
+				},
 			},
 		},
-		&RemoteBundle{
-			Name:    "Shougo/unite.vim",
-			Aliases: []string{"unite"},
-		},
-		&RemoteBundle{
-			Name:    "osyo-manga/vim-watchdogs",
-			Aliases: []string{"watchdogs"},
-			Dependencies: []*RemoteBundle{
-				&RemoteBundle{Name: "thinca/vim-quickrun"},
-				&RemoteBundle{Name: "Shougo/vimproc.vim"},
-				&RemoteBundle{Name: "osyo-manga/shabadou.vim"},
-				&RemoteBundle{Name: "jceb/vim-hier"},
-				&RemoteBundle{Name: "dannyob/quickfixstatus"},
+		yaml.Bundle{
+			Remote: &yaml.RemoteBundle{
+				Name:    "Shougo/unite.vim",
+				Aliases: []string{"unite"},
 			},
 		},
-		&RemoteBundle{
-			Name:         "godlygeek/csapprox",
-			Aliases:      []string{"csapprox"},
-			EnableIfExpr: "!has('gui_running')",
+		yaml.Bundle{
+			Remote: &yaml.RemoteBundle{
+				Name:    "osyo-manga/vim-watchdogs",
+				Aliases: []string{"watchdogs"},
+				Dependencies: []*yaml.RemoteBundle{
+					&yaml.RemoteBundle{Name: "thinca/vim-quickrun"},
+					&yaml.RemoteBundle{Name: "Shougo/vimproc.vim"},
+					&yaml.RemoteBundle{Name: "osyo-manga/shabadou.vim"},
+					&yaml.RemoteBundle{Name: "jceb/vim-hier"},
+					&yaml.RemoteBundle{Name: "dannyob/quickfixstatus"},
+				},
+			},
 		},
-		&LocalBundle{
-			LocalPath: "~/sources/vim-hariti/",
+		yaml.Bundle{
+			Remote: &yaml.RemoteBundle{
+				Name:         "godlygeek/csapprox",
+				Aliases:      []string{"csapprox"},
+				EnableIfExpr: "!has('gui_running')",
+			},
+		},
+		yaml.Bundle{
+			Local: &yaml.LocalBundle{
+				Path: "~/sources/vim-hariti/",
+			},
 		},
 	}
 	if !reflect.DeepEqual(bundles, expected) {

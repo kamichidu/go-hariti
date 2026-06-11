@@ -3,12 +3,14 @@ package hariti
 import (
 	"context"
 	"net/url"
+
+	"github.com/kamichidu/go-hariti/internal/graph"
 )
 
 type VCS interface {
 	CanHandle(c context.Context, u *url.URL) bool
-	Clone(c context.Context, bundle *RemoteBundle, update bool) error
-	IsModified(c context.Context, bundle *RemoteBundle) (bool, error)
+	Clone(c context.Context, bundle graph.Bundle, update bool) error
+	IsModified(c context.Context, bundle graph.Bundle) (bool, error)
 }
 
 var vcsList []VCS
