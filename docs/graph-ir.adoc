@@ -11,7 +11,7 @@ The Graph IR was introduced to enforce one of `hariti`'s core design principles:
 The introduction of the Graph IR achieves the following objectives:
 
 Decoupling::
-  Completely decouples the frontend layer responsible for parsing configurations (the existing YAML format or future DSL) from the backend layer responsible for synchronization, generation, and projection (`Sync`, `Lock`, `Generation`, `Projector`).
+  Completely decouples the frontend layer responsible for parsing configurations (the DSL format) from the backend layer responsible for synchronization, generation, and projection (`Sync`, `Lock`, `Generation`, `Projector`).
 Semantic Consolidation::
   Consolidates the semantic representation of the "directed plugin dependency graph" into a single, unified structure, regardless of the input format source.
 
@@ -121,6 +121,6 @@ A directional override rule for a bundle.
 
 The `Graph` built from input declarations is processed and evaluated through the following sequential stages:
 
-1. **Input Parsing**: The frontend parser (YAML DTO or future DSL parser) reads the configuration files and deserializes them into intermediate DTOs.
-2. **Graph IR Construction**: The intermediate DTOs are mapped to the unified `graph.Graph` structure, populating the nodes (bundles), sources, build configurations, and metadata.
+1. **Input Parsing**: The frontend parser (DSL parser) reads the configuration files and parses them into a syntactical representation (DSL AST).
+2. **Graph IR Construction**: The parsed AST is mapped to the unified `graph.Graph` structure, populating the nodes (bundles), sources, build configurations, and metadata.
 3. **Boundary Translation**: The compiled Graph IR is handed over to the core execution engine (`Sync`, `Lock`, or projection logic). The backend execution layer remains entirely agnostic of specific input syntax patterns or serialization formats.
