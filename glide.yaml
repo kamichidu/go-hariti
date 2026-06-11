@@ -1,9 +1,0 @@
-package: github.com/kamichidu/go-hariti
-import:
-- package: github.com/urfave/cli
-  version: ^1.19.1
-- package: github.com/kr/pretty
-- package: gopkg.in/yaml.v2
-- package: github.com/pmezard/go-difflib
-  subpackages:
-  - difflib

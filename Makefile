@@ -7,7 +7,7 @@ build: generate
 
 .PHONY: generate
 generate:
-	go generate -v $$(glide novendor)
+	go generate ./...
 
 .PHONY: debug
 debug: build
@@ -15,10 +15,8 @@ debug: build
 
 .PHONY: test
 test: generate
-	go test ${VERBOSE} $$(glide novendor)
+	go test ${VERBOSE} ./...
 
 .PHONY: deps
 deps:
-	go get -v golang.org/x/tools/cmd/goyacc
-	go get -v github.com/Masterminds/glide
-	glide install
+	go mod download

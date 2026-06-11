@@ -347,14 +347,14 @@ state 43
 Rule not reduced: local_bundle_options:  
 
 20 terminals, 17 nonterminals
-32 grammar rules, 44/8000 states
+32 grammar rules, 44/16000 states
 0 shift/reduce, 8 reduce/reduce conflicts reported
 66 working sets used
-memory: parser 24/120000
+memory: parser 24/240000
 0 extra closures
 30 shift entries, 1 exceptions
 22 goto entries
 3 entries saved by goto default
-Optimizer space used: output 43/120000
+Optimizer space used: output 43/240000
 43 table entries, 0 zero
 maximum spread: 20, maximum offset: 38

@@ -5,7 +5,7 @@ import (
 	"io"
 )
 
-//go:generate goyacc -o parser.go -p yy parser.go.y
+//go:generate go run golang.org/x/tools/cmd/goyacc -o parser.go -p yy parser.go.y
 func Parse(src io.Reader) ([]Bundle, error) {
 	lexer := NewLexer()
 	lexer.Init(src)

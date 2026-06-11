@@ -30,7 +30,7 @@ type Response struct {
 
 func call(req *Request) (*Response, error) {
 	if req.JSONRPC != "2.0" {
-		return nil, fmt.Errorf("Object key \"jsonrpc\" must be exact \"2.0\"", req.JSONRPC)
+		return nil, fmt.Errorf("Object key \"jsonrpc\" must be exact \"2.0\" (got %q)", req.JSONRPC)
 	}
 	if req.Id != nil {
 		value, err := onInvocation(req.Method, req.Params)
