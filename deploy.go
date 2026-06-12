@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -85,7 +84,7 @@ func (self *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptio
 	}
 
 	// Read project-side hariti.lock content
-	lockBytes, err := ioutil.ReadFile(self.LockfilePath())
+	lockBytes, err := os.ReadFile(self.LockfilePath())
 	if err != nil {
 		return "", fmt.Errorf("failed to read lockfile: %w", err)
 	}
@@ -154,8 +153,8 @@ func (self *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptio
 					buildCmd = exec.Command("sh", "-c", step.Cmd)
 				}
 				buildCmd.Dir = destDir
-				buildCmd.Stdout = ioutil.Discard
-				buildCmd.Stderr = ioutil.Discard
+				buildCmd.Stdout = io.Discard
+				buildCmd.Stderr = io.Discard
 				_ = buildCmd.Run()
 			}
 		}
@@ -189,12 +188,12 @@ func (self *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptio
 			}
 		}
 	}
-	if err := ioutil.WriteFile(filepath.Join(genDir, "packadd.vim"), []byte(packaddContent.String()), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(genDir, "packadd.vim"), []byte(packaddContent.String()), 0644); err != nil {
 		return "", fmt.Errorf("failed to write packadd.vim: %w", err)
 	}
 
 	// Copy hariti.lock to lock.json
-	if err := ioutil.WriteFile(filepath.Join(genDir, "lock.json"), lockBytes, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(genDir, "lock.json"), lockBytes, 0644); err != nil {
 		return "", fmt.Errorf("failed to copy lock snapshot: %w", err)
 	}
 
@@ -208,7 +207,7 @@ func (self *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptio
 	if err != nil {
 		return "", fmt.Errorf("failed to serialize generation metadata: %w", err)
 	}
-	if err := ioutil.WriteFile(filepath.Join(genDir, "metadata.json"), metaBytes, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(genDir, "metadata.json"), metaBytes, 0644); err != nil {
 		return "", fmt.Errorf("failed to write metadata.json: %w", err)
 	}
 

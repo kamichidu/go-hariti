@@ -2,7 +2,7 @@ package dsl
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -36,7 +36,7 @@ func (l *Loader) Load(path string) (*ast.File, error) {
 		l.visited[absPath] = false
 	}()
 
-	src, err := ioutil.ReadFile(absPath)
+	src, err := os.ReadFile(absPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file %s: %w", absPath, err)
 	}

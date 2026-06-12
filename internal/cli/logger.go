@@ -2,7 +2,6 @@ package cli
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 
 	"github.com/kamichidu/go-hariti"
@@ -14,7 +13,7 @@ type CLILogger struct {
 }
 
 func NewCLILogger(verbose bool) *CLILogger {
-	var writer io.Writer = ioutil.Discard
+	writer := io.Discard
 	if verbose {
 		writer = os.Stdout
 	}

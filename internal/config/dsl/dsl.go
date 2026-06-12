@@ -2,7 +2,6 @@ package dsl
 
 import (
 	"io"
-	"io/ioutil"
 
 	"github.com/kamichidu/go-hariti/internal/config/dsl/ast"
 	"github.com/kamichidu/go-hariti/internal/config/dsl/parser"
@@ -18,7 +17,7 @@ func Parse(filename string, src []byte) (*ast.File, error) {
 }
 
 func ParseReader(r io.Reader) (*ast.File, error) {
-	src, err := ioutil.ReadAll(r)
+	src, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}

@@ -3,7 +3,7 @@ package hariti_test
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -44,7 +44,7 @@ func TestHariti_Deploy_Success(t *testing.T) {
 	}
 	// Add a dummy file inside local plugin to verify it gets exported
 	localFile := filepath.Join(localPluginDir, "plugin.vim")
-	if err := ioutil.WriteFile(localFile, []byte("echo 'local'"), 0644); err != nil {
+	if err := os.WriteFile(localFile, []byte("echo 'local'"), 0644); err != nil {
 		t.Fatalf("failed to write local file: %v", err)
 	}
 
@@ -83,15 +83,15 @@ func TestHariti_Deploy_Success(t *testing.T) {
 	// Initialize Hariti
 	cfg := &hariti.HaritiConfig{
 		Directory: filepath.Join(tmpDir, "hariti home with spaces"),
-		Writer:    ioutil.Discard,
-		ErrWriter: ioutil.Discard,
+		Writer:    io.Discard,
+		ErrWriter: io.Discard,
 	}
 	har := hariti.NewHariti(cfg)
 
 	ctx := context.Background()
-	ctx = hariti.WithWriter(ctx, ioutil.Discard)
-	ctx = hariti.WithErrWriter(ctx, ioutil.Discard)
-	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(ioutil.Discard))
+	ctx = hariti.WithWriter(ctx, io.Discard)
+	ctx = hariti.WithErrWriter(ctx, io.Discard)
+	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(io.Discard))
 
 	// Step 1: Sync first to retrieve and write hariti.lock
 	_, err = har.Sync(ctx, g, hariti.SyncOptions{Update: false})
@@ -113,7 +113,7 @@ func TestHariti_Deploy_Success(t *testing.T) {
 	genDir := filepath.Join(har.GenerationsDir(), genID)
 
 	// Check metadata.json
-	metaBytes, err := ioutil.ReadFile(filepath.Join(genDir, "metadata.json"))
+	metaBytes, err := os.ReadFile(filepath.Join(genDir, "metadata.json"))
 	if err != nil {
 		t.Fatalf("failed to read metadata.json: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestHariti_Deploy_Success(t *testing.T) {
 	}
 
 	// Check lock.json
-	lockBytes, err := ioutil.ReadFile(filepath.Join(genDir, "lock.json"))
+	lockBytes, err := os.ReadFile(filepath.Join(genDir, "lock.json"))
 	if err != nil {
 		t.Fatalf("failed to read lock.json: %v", err)
 	}
@@ -172,7 +172,7 @@ func TestHariti_Deploy_Success(t *testing.T) {
 	}
 
 	// 5. Verify generated packadd.vim
-	packaddBytes, err := ioutil.ReadFile(filepath.Join(genDir, "packadd.vim"))
+	packaddBytes, err := os.ReadFile(filepath.Join(genDir, "packadd.vim"))
 	if err != nil {
 		t.Fatalf("failed to read packadd.vim: %v", err)
 	}

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"os/exec"
@@ -37,7 +36,7 @@ type Hariti struct {
 }
 
 func NewHariti(config *HaritiConfig) *Hariti {
-	return &Hariti{config, NewStdLogger(ioutil.Discard)}
+	return &Hariti{config, NewStdLogger(io.Discard)}
 }
 
 func (self *Hariti) SetupManagedDirectory() error {
@@ -148,7 +147,7 @@ func (self *Hariti) WriteScript(w io.Writer, header []string) error {
 		}
 		return nil
 	}
-	enabledBundles, err := ioutil.ReadDir(self.DeployDir())
+	enabledBundles, err := os.ReadDir(self.DeployDir())
 	if err != nil {
 		return err
 	}
@@ -191,7 +190,7 @@ func (self *Hariti) vimNativeRuntimeDirs() (rtp []string, afterRtp []string, err
 	buf := new(bytes.Buffer)
 
 	cmd := exec.Command("vim", "--not-a-term", "-N", "-n", "--noplugin", "-i", "NONE", "-u", "NONE", "-U", "NONE", "--cmd", "echo &runtimepath", "--cmd", "q!")
-	cmd.Stdout = ioutil.Discard
+	cmd.Stdout = io.Discard
 	cmd.Stderr = buf
 	if err := cmd.Run(); err != nil {
 		return nil, nil, err
@@ -347,7 +346,7 @@ func (self *Hariti) Remove(repository string, force bool) error {
 
 func (self *Hariti) List() ([]graph.Bundle, error) {
 	// under the repositories dir, that's remote bundles
-	children, err := ioutil.ReadDir(self.RepositoriesDir())
+	children, err := os.ReadDir(self.RepositoriesDir())
 	if err != nil {
 		return nil, err
 	}
@@ -364,7 +363,7 @@ func (self *Hariti) List() ([]graph.Bundle, error) {
 		}
 	}
 	// under the deploy dir and not pointed to repositories dir, that's local bundles
-	children, err = ioutil.ReadDir(self.DeployDir())
+	children, err = os.ReadDir(self.DeployDir())
 	if err != nil {
 		return bundles, err
 	}
@@ -612,7 +611,7 @@ func (self *Hariti) loadRepositoryMetadata(bundleID string) (*RepositoryMetadata
 		return nil, err
 	}
 
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -635,7 +634,7 @@ func (self *Hariti) writeRepositoryMetadata(bundleID string, meta *RepositoryMet
 		return err
 	}
 
-	return ioutil.WriteFile(path, data, 0644)
+	return os.WriteFile(path, data, 0644)
 }
 
 func (self *Hariti) writeLockfile(facts []RepositoryFact, g *graph.Graph) error {
@@ -672,7 +671,7 @@ func (self *Hariti) writeLockfile(facts []RepositoryFact, g *graph.Graph) error 
 		return err
 	}
 
-	return ioutil.WriteFile(self.LockfilePath(), data, 0644)
+	return os.WriteFile(self.LockfilePath(), data, 0644)
 }
 
 func getSourceString(b graph.Bundle) string {

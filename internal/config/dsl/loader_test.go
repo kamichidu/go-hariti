@@ -1,7 +1,6 @@
 package dsl_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,7 +18,7 @@ include "plugins/core.hariti"
 use main-plugin
 `
 	mainPath := filepath.Join(tmpDir, "main.hariti")
-	if err := ioutil.WriteFile(mainPath, []byte(mainContent), 0644); err != nil {
+	if err := os.WriteFile(mainPath, []byte(mainContent), 0644); err != nil {
 		t.Fatalf("failed to write main.hariti: %v", err)
 	}
 
@@ -33,7 +32,7 @@ use main-plugin
 include '../common/helper.hariti'
 use core-plugin
 `
-	if err := ioutil.WriteFile(filepath.Join(pluginsDir, "core.hariti"), []byte(coreContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(pluginsDir, "core.hariti"), []byte(coreContent), 0644); err != nil {
 		t.Fatalf("failed to write core.hariti: %v", err)
 	}
 
@@ -44,7 +43,7 @@ use core-plugin
 	}
 
 	helperContent := `use helper-plugin`
-	if err := ioutil.WriteFile(filepath.Join(commonDir, "helper.hariti"), []byte(helperContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(commonDir, "helper.hariti"), []byte(helperContent), 0644); err != nil {
 		t.Fatalf("failed to write helper.hariti: %v", err)
 	}
 
@@ -83,10 +82,10 @@ func TestLoader_CircularDetection(t *testing.T) {
 	aContent := `include "b.hariti"`
 	bContent := `include "a.hariti"`
 
-	if err := ioutil.WriteFile(aPath, []byte(aContent), 0644); err != nil {
+	if err := os.WriteFile(aPath, []byte(aContent), 0644); err != nil {
 		t.Fatalf("failed to write a.hariti: %v", err)
 	}
-	if err := ioutil.WriteFile(bPath, []byte(bContent), 0644); err != nil {
+	if err := os.WriteFile(bPath, []byte(bContent), 0644); err != nil {
 		t.Fatalf("failed to write b.hariti: %v", err)
 	}
 
@@ -107,7 +106,7 @@ include "plugins/*.hariti"
 use main-plugin
 `
 	mainPath := filepath.Join(tmpDir, "main.hariti")
-	if err := ioutil.WriteFile(mainPath, []byte(mainContent), 0644); err != nil {
+	if err := os.WriteFile(mainPath, []byte(mainContent), 0644); err != nil {
 		t.Fatalf("failed to write main.hariti: %v", err)
 	}
 
@@ -117,10 +116,10 @@ use main-plugin
 		t.Fatalf("failed to create plugins dir: %v", err)
 	}
 
-	if err := ioutil.WriteFile(filepath.Join(pluginsDir, "a.hariti"), []byte(`use a-plugin`), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(pluginsDir, "a.hariti"), []byte(`use a-plugin`), 0644); err != nil {
 		t.Fatalf("failed to write a.hariti: %v", err)
 	}
-	if err := ioutil.WriteFile(filepath.Join(pluginsDir, "b.hariti"), []byte(`use b-plugin`), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(pluginsDir, "b.hariti"), []byte(`use b-plugin`), 0644); err != nil {
 		t.Fatalf("failed to write b.hariti: %v", err)
 	}
 

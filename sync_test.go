@@ -3,7 +3,7 @@ package hariti_test
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/url"
 	"os"
 	"os/exec"
@@ -81,15 +81,15 @@ func TestHariti_Sync_LocalAndRemoteAndMetadata(t *testing.T) {
 
 	cfg := &hariti.HaritiConfig{
 		Directory: filepath.Join(tmpDir, "hariti_home"),
-		Writer:    ioutil.Discard,
-		ErrWriter: ioutil.Discard,
+		Writer:    io.Discard,
+		ErrWriter: io.Discard,
 	}
 	har := hariti.NewHariti(cfg)
 
 	ctx := context.Background()
-	ctx = hariti.WithWriter(ctx, ioutil.Discard)
-	ctx = hariti.WithErrWriter(ctx, ioutil.Discard)
-	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(ioutil.Discard))
+	ctx = hariti.WithWriter(ctx, io.Discard)
+	ctx = hariti.WithErrWriter(ctx, io.Discard)
+	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(io.Discard))
 
 	facts, err := har.Sync(ctx, g, hariti.SyncOptions{Update: false})
 	if err != nil {
@@ -112,7 +112,7 @@ func TestHariti_Sync_LocalAndRemoteAndMetadata(t *testing.T) {
 		t.Fatalf("expected metadata file to exist, got error: %v", err)
 	}
 
-	metaBytes, err := ioutil.ReadFile(metaPath)
+	metaBytes, err := os.ReadFile(metaPath)
 	if err != nil {
 		t.Fatalf("failed to read metadata: %v", err)
 	}
@@ -141,7 +141,7 @@ func TestHariti_Sync_LocalAndRemoteAndMetadata(t *testing.T) {
 		t.Fatalf("expected hariti.lock to exist, got error: %v", err)
 	}
 
-	lockBytes, err := ioutil.ReadFile(lockPath)
+	lockBytes, err := os.ReadFile(lockPath)
 	if err != nil {
 		t.Fatalf("failed to read lockfile: %v", err)
 	}
@@ -194,15 +194,15 @@ func TestHariti_Sync_SourceMismatch(t *testing.T) {
 
 	cfg := &hariti.HaritiConfig{
 		Directory: filepath.Join(tmpDir, "hariti_home"),
-		Writer:    ioutil.Discard,
-		ErrWriter: ioutil.Discard,
+		Writer:    io.Discard,
+		ErrWriter: io.Discard,
 	}
 	har := hariti.NewHariti(cfg)
 
 	ctx := context.Background()
-	ctx = hariti.WithWriter(ctx, ioutil.Discard)
-	ctx = hariti.WithErrWriter(ctx, ioutil.Discard)
-	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(ioutil.Discard))
+	ctx = hariti.WithWriter(ctx, io.Discard)
+	ctx = hariti.WithErrWriter(ctx, io.Discard)
+	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(io.Discard))
 
 	// Step 1: Sync with remoteURL1
 	g1 := &graph.Graph{
@@ -228,7 +228,7 @@ func TestHariti_Sync_SourceMismatch(t *testing.T) {
 
 	// Verify metadata points to remoteURL1
 	metaPath := filepath.Join(xdgHome, "hariti", "metadata", url.QueryEscape("my-mismatch-plugin"))
-	metaBytes, _ := ioutil.ReadFile(metaPath)
+	metaBytes, _ := os.ReadFile(metaPath)
 	var meta hariti.RepositoryMetadata
 	_ = json.Unmarshal(metaBytes, &meta)
 	if meta.Source != remoteURL1.String() {
@@ -258,7 +258,7 @@ func TestHariti_Sync_SourceMismatch(t *testing.T) {
 	}
 
 	// Verify metadata updated to remoteURL2
-	metaBytes2, _ := ioutil.ReadFile(metaPath)
+	metaBytes2, _ := os.ReadFile(metaPath)
 	_ = json.Unmarshal(metaBytes2, &meta)
 	if meta.Source != remoteURL2.String() {
 		t.Errorf("expected updated meta source %s, got %s", remoteURL2.String(), meta.Source)
@@ -282,15 +282,15 @@ func TestHariti_Sync_LocalSourceMissingError(t *testing.T) {
 
 	cfg := &hariti.HaritiConfig{
 		Directory: filepath.Join(tmpDir, "hariti_home"),
-		Writer:    ioutil.Discard,
-		ErrWriter: ioutil.Discard,
+		Writer:    io.Discard,
+		ErrWriter: io.Discard,
 	}
 	har := hariti.NewHariti(cfg)
 
 	ctx := context.Background()
-	ctx = hariti.WithWriter(ctx, ioutil.Discard)
-	ctx = hariti.WithErrWriter(ctx, ioutil.Discard)
-	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(ioutil.Discard))
+	ctx = hariti.WithWriter(ctx, io.Discard)
+	ctx = hariti.WithErrWriter(ctx, io.Discard)
+	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(io.Discard))
 
 	_, err := har.Sync(ctx, g, hariti.SyncOptions{Update: false})
 	if err == nil {
