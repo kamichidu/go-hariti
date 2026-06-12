@@ -7,7 +7,7 @@ import (
 	"runtime"
 
 	"github.com/kamichidu/go-hariti"
-	"github.com/kamichidu/go-hariti/cmd/hariti/subcmd"
+	"github.com/kamichidu/go-hariti/internal/cli/commands"
 	_ "github.com/kamichidu/go-hariti/vcs/git"
 	"github.com/urfave/cli"
 )
@@ -32,7 +32,7 @@ func run() int {
 	// app.Usage = ""
 	// app.UsageText = ""
 	// app.ArgsUsage = ""
-	app.Commands = subcmd.Commands
+	app.Commands = commands.Commands
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
 			Name:   "directory,d",

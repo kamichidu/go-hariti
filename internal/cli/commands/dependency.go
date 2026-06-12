@@ -1,16 +1,16 @@
-package subcmd
+package commands
 
 import (
 	"github.com/kamichidu/go-hariti"
 	"github.com/urfave/cli"
 )
 
-func addAliasAction(c *cli.Context) error {
+func addDependencyAction(c *cli.Context) error {
 	har := c.App.Metadata["hariti"].(*hariti.Hariti)
 
 	repository := c.Args().First()
 	for _, arg := range c.Args().Tail() {
-		if err := har.AddAlias(repository, arg); err != nil {
+		if err := har.AddDependency(repository, arg); err != nil {
 			return cli.NewExitError(err, 1)
 		}
 	}
@@ -18,12 +18,12 @@ func addAliasAction(c *cli.Context) error {
 	return nil
 }
 
-func removeAliasAction(c *cli.Context) error {
+func removeDependencyAction(c *cli.Context) error {
 	har := c.App.Metadata["hariti"].(*hariti.Hariti)
 
 	repository := c.Args().First()
 	for _, arg := range c.Args().Tail() {
-		if err := har.RemoveAlias(repository, arg); err != nil {
+		if err := har.RemoveDependency(repository, arg); err != nil {
 			return cli.NewExitError(err, 1)
 		}
 	}
@@ -31,38 +31,39 @@ func removeAliasAction(c *cli.Context) error {
 	return nil
 }
 
-func clearAliasAction(c *cli.Context) error {
+func clearDependencyAction(c *cli.Context) error {
 	har := c.App.Metadata["hariti"].(*hariti.Hariti)
 
-	return har.ClearAlias(c.Args().First())
+	return har.ClearDependencies(c.Args().First())
 }
 
 func init() {
 	Commands = append(Commands, cli.Command{
-		Name:  "alias",
-		Usage: "Alias management",
-		Flags: []cli.Flag{},
+		Name:    "dependency",
+		Aliases: []string{"dep"},
+		Usage:   "Dependency management",
+		Flags:   []cli.Flag{},
 		Subcommands: cli.Commands{
 			cli.Command{
 				Name:      "add",
 				Aliases:   []string{"a"},
-				Usage:     "Add alias",
-				ArgsUsage: "{repository} {alias}...",
-				Action:    addAliasAction,
+				Usage:     "Add dependencies",
+				ArgsUsage: "{repository} {dependency}...",
+				Action:    addDependencyAction,
 			},
 			cli.Command{
 				Name:      "rm",
 				Aliases:   []string{"delete", "d"},
-				Usage:     "Remove aliases list",
-				ArgsUsage: "{repository} {alias}...",
-				Action:    removeAliasAction,
+				Usage:     "Remove dependencies list",
+				ArgsUsage: "{repository} {dependency}...",
+				Action:    removeDependencyAction,
 			},
 			cli.Command{
 				Name:      "clear",
 				Aliases:   []string{"c"},
-				Usage:     "Clear aliases",
+				Usage:     "Clear dependencies",
 				ArgsUsage: "{repository}",
-				Action:    clearAliasAction,
+				Action:    clearDependencyAction,
 			},
 		},
 	})

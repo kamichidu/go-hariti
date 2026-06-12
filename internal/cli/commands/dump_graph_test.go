@@ -1,4 +1,4 @@
-package subcmd_test
+package commands_test
 
 import (
 	"bytes"
@@ -6,14 +6,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kamichidu/go-hariti/cmd/hariti/subcmd"
+	"github.com/kamichidu/go-hariti/internal/cli/commands"
 	"github.com/urfave/cli"
 )
 
 func TestDumpGraph_UnsupportedFormat(t *testing.T) {
 	app := cli.NewApp()
 	app.Writer = new(bytes.Buffer)
-	app.Commands = subcmd.Commands
+	app.Commands = commands.Commands
 
 	set := flag.NewFlagSet("test", flag.ContinueOnError)
 	_ = set.Parse([]string{"bundles.yml"})

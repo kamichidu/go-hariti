@@ -1,4 +1,4 @@
-package subcmd
+package commands
 
 import (
 	"github.com/kamichidu/go-hariti"

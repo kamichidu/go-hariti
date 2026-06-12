@@ -260,19 +260,24 @@ If a statement can be trivially derived from source code, it probably belongs in
 /Users/e-sekito/local/src/github.com/kamichidu/go-hariti/
 |-- cmd/
 |   `-- hariti/             # Main application entry point
-|       |-- main.go
-|       `-- subcmd/         # Subcommand implementation files
+|       `-- main.go
 |-- docs/
-|   `-- architecture.md     # Architectural design documentation
+|   |-- architecture.adoc   # Master architectural design documentation
+|   |-- dsl.adoc            # DSL configuration syntax specifications
+|   `-- graph-ir.adoc       # Resolved Graph IR specifications
 |-- encoding/
-|   `-- hariti/             # DSL lexing, parsing, and type definitions
-|       |-- lexer.go
-|       |-- parser.go.y
-|       `-- types.go
+|   `-- hariti/             # Legacy DSL parser draft
+|-- internal/
+|   |-- cli/
+|   |   `-- commands/       # Refactored CLI commands
+|   |-- config/
+|   |   `-- dsl/            # Normalized DSL parser, AST, and Loader
+|   |-- graph/              # Normalized Graph IR definitions
+|   `-- vcs/                # Consolidated VCS Git Adapter
 |-- vcs/
-|   `-- git/                # VCS abstraction adapter (Git implementation)
-|-- bundle.go               # Bundle representations
+|   `-- git/                # Legacy VCS proxy adapter
+|-- bundle.go               # Bundle interface definition
 |-- context.go              # Context management
-|-- hariti.go               # Core logic
+|-- hariti.go               # Core sync and deployment logic
 `-- vcs.go                  # VCS common interface
 ```
