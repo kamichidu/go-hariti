@@ -1,0 +1,204 @@
+= Hariti Generation Design Specification
+:toc: left
+:sectnums:
+
+This document defines the design, lifecycle, and boundary contracts for Hariti Generations.
+
+== Purpose
+
+A Generation is an immutable Vim runtime distribution produced from synchronized repositories and a lockfile.
+
+Hariti separates mutable source repositories from immutable runtime distributions.
+
+## [source,text]
+
+repos/
+mutable source working copies
+
+generations/
+immutable Vim runtime distributions
+-----------------------------------
+
+Repositories are never used directly as Vim runtime paths.
+
+A Generation is the artifact consumed by Vim.
+
+---
+
+== Core Principle
+
+## [source,text]
+
+## Repository != Generation
+
+Repository::
+Mutable source material managed by synchronization.
+
+Generation::
+Immutable runtime distribution exported from repository revisions recorded in the lockfile.
+
+---
+
+== Inputs
+
+Generation uses the following inputs:
+
+Resolved Graph::
+Defines bundle identity, source, dependencies, build steps, aliases, and enable conditions.
+
+Lockfile::
+Defines the observed revision for each bundle at sync time.
+
+Repository Store::
+Contains mutable Git working copies under `$XDG_DATA_HOME/hariti/repos/`.
+
+---
+
+== Output
+
+Generation produces a self-contained runtime distribution directory.
+
+Example:
+
+## [source,text]
+
+$XDG_DATA_HOME/hariti/generations/<generation-id>/
+lock.json
+metadata.json
+pack/
+init.vim
+--------
+
+The exact layout may evolve, but the generation directory is immutable after creation.
+
+---
+
+== Generation Identity
+
+A Generation represents the aggregate snapshot of all bundle revisions.
+
+Conceptually, the generation identity is derived from the lockfile contents.
+
+## [source,text]
+
+## generation-id = hash(lockfile content)
+
+A timestamp or timestamp plus short hash may be used for human-readable directories, but the semantic identity is the lockfile snapshot.
+
+---
+
+== Export Model
+
+Remote bundles are exported from the repository store at the revision recorded in the lockfile.
+
+Local bundles are exported from their current local filesystem contents.
+
+Local sources are outside Hariti's lockfile reproducibility guarantee.
+
+---
+
+== Vim Runtime Layout
+
+Generation directly produces the Vim-facing runtime distribution.
+
+There is no separate Projection artifact.
+
+Projection is a step within Generation.
+
+Generation may produce:
+
+* `pack/*` layout
+* generated `packadd` script
+* generated runtime initialization script
+* help tags
+* metadata files
+
+---
+
+== Runtime Policy
+
+Vim startup must not perform:
+
+* VCS operations
+* dependency resolution
+* build execution
+* graph mutation
+* generation creation
+
+Vim may only consume an already-created Generation.
+
+The only runtime evaluation allowed by Hariti is `enable_if`.
+
+---
+
+== Immutability
+
+A Generation must not be modified after creation.
+
+Updating Hariti runtime state creates a new Generation.
+
+Rollback is performed by switching a `current` symlink or equivalent pointer to a previous Generation.
+
+## [source,text]
+
+generations/ <generation-a>/ <generation-b>/
+current -> generations/<generation-b>
+-------------------------------------
+
+---
+
+== Build Steps
+
+Build steps are executed during Generation, not during Vim startup.
+
+Build commands operate on exported bundle contents inside the Generation directory.
+
+Build steps must not mutate the repository store.
+
+---
+
+== Lock Snapshot
+
+Each Generation stores the lockfile snapshot used to create it.
+
+This allows a Generation to be inspected or rolled back even if the project-side `hariti.lock` has changed.
+
+Generation lock snapshots are operational artifacts, not the primary user-managed lockfile.
+
+---
+
+== Non-Goals
+
+Generation does not:
+
+* clone repositories
+* update repositories
+* resolve DSL syntax
+* apply replace or merge directives
+* mutate the Resolved Graph
+* perform Vim startup-time dependency resolution
+
+Those responsibilities belong to earlier stages.
+
+---
+
+== Processing Flow
+
+## [source,text]
+
+Resolved Graph
+-> Sync repositories
+-> Observe revisions
+-> Write hariti.lock
+-> Create Generation
+-> Export bundles into Vim runtime layout
+-> Run build steps
+-> Write generation metadata
+-> Switch current generation
+----------------------------
+
+== Related Documents
+
+* docs/architecture.adoc
+* docs/dsl.adoc
+* docs/graph-ir.adoc
