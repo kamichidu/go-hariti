@@ -50,6 +50,7 @@ func (self *Git) Clone(ctx context.Context, bundle graph.Bundle, update bool, ou
 	select {
 	case <-ctx.Done():
 		if cmd.Process != nil {
+			//nolint:errcheck // safe: process may already be dead during cancellation/timeout
 			cmd.Process.Kill()
 		}
 		return ctx.Err()
@@ -84,6 +85,7 @@ func (self *Git) IsModified(ctx context.Context, bundle graph.Bundle, out, errOu
 	select {
 	case <-ctx.Done():
 		if cmd.Process != nil {
+			//nolint:errcheck // safe: process may already be dead during cancellation/timeout
 			cmd.Process.Kill()
 		}
 		return false, ctx.Err()
@@ -108,6 +110,7 @@ func (self *Git) CanHandle(ctx context.Context, urlStr string) bool {
 	select {
 	case <-ctx.Done():
 		if cmd.Process != nil {
+			//nolint:errcheck // safe: process may already be dead during cancellation/timeout
 			cmd.Process.Kill()
 		}
 		return false
@@ -132,6 +135,7 @@ func (self *Git) HeadRevision(ctx context.Context, bundle graph.Bundle, out, err
 	select {
 	case <-ctx.Done():
 		if cmd.Process != nil {
+			//nolint:errcheck // safe: process may already be dead during cancellation/timeout
 			cmd.Process.Kill()
 		}
 		return "", ctx.Err()
@@ -186,11 +190,14 @@ func (self *Git) Archive(ctx context.Context, bundle graph.Bundle, revision stri
 				return fmt.Errorf("failed to create file %s: %w", target, err)
 			}
 
-			if _, err := io.Copy(outFile, tarReader); err != nil {
-				outFile.Close()
+			_, err = io.Copy(outFile, tarReader)
+			closeErr := outFile.Close()
+			if err != nil {
 				return fmt.Errorf("failed to write file %s: %w", target, err)
 			}
-			outFile.Close()
+			if closeErr != nil {
+				return fmt.Errorf("failed to close file %s: %w", target, closeErr)
+			}
 		}
 	}
 

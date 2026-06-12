@@ -286,3 +286,36 @@ If a statement can be trivially derived from source code, it probably belongs in
 |-- sync.go                 # Sync usecase public API
 `-- vcs.go                  # VCS common interface
 ```
+
+---
+
+## 9. Error Ignoring Policy
+
+Hariti does not silently ignore errors.
+When an error-returning call is intentionally ignored, the code must make that decision explicit and reviewable.
+
+### Rules:
+1. `_ = fn()` must not be used to silence errcheck.
+2. `//nolint:errcheck` may be used only when ignoring the error is intentional and safe.
+3. Every `//nolint:errcheck` must include an adjacent explanation describing why the ignored error cannot affect correctness, durability, or user-visible behavior.
+
+Good:
+```go
+//nolint:errcheck // safe: rollback failure is irrelevant because the transaction is already being discarded.
+tx.Rollback()
+```
+
+Bad:
+```go
+//nolint:errcheck
+tx.Rollback()
+```
+
+Bad:
+```go
+_ = tx.Rollback()
+```
+
+### Intent:
+Ignoring an error is a design decision.
+Design decisions must leave enough context for future maintainers to review them.

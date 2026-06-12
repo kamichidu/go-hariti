@@ -51,15 +51,19 @@ func copyDir(src, dest string) error {
 		if err != nil {
 			return err
 		}
+		//nolint:errcheck // safe: srcFile is read-only; closing error cannot affect file integrity or durability
 		defer srcFile.Close()
 
 		destFile, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode())
 		if err != nil {
 			return err
 		}
-		defer destFile.Close()
 
 		_, err = io.Copy(destFile, srcFile)
+		closeErr := destFile.Close()
+		if err == nil {
+			err = closeErr
+		}
 		return err
 	})
 }

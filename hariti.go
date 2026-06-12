@@ -112,7 +112,9 @@ func (self *Hariti) LockfilePath() string {
 func (self *Hariti) WriteScript(w io.Writer, header []string) error {
 	// write given header lines
 	for _, line := range header {
-		fmt.Fprintln(w, line)
+		if _, err := fmt.Fprintln(w, line); err != nil {
+			return err
+		}
 	}
 
 	rtp, afterRtp, err := self.vimNativeRuntimeDirs()
@@ -157,7 +159,9 @@ func (self *Hariti) WriteScript(w io.Writer, header []string) error {
 	}
 
 	// generate vim script
-	fmt.Fprintln(w, "set runtimepath=")
+	if _, err := fmt.Fprintln(w, "set runtimepath="); err != nil {
+		return err
+	}
 	for _, path := range append(rtp, afterRtp...) {
 		enableIfExpr, err := self.getMetaString(filepath.Base(path), metaEnableIfExpr)
 		if err != nil {
@@ -166,12 +170,18 @@ func (self *Hariti) WriteScript(w io.Writer, header []string) error {
 
 		var prefix string
 		if enableIfExpr != "" {
-			fmt.Fprintf(w, "if %s\n", enableIfExpr)
+			if _, err := fmt.Fprintf(w, "if %s\n", enableIfExpr); err != nil {
+				return err
+			}
 			prefix = "  "
 		}
-		fmt.Fprintf(w, "%sset runtimepath+=%s\n", prefix, path)
+		if _, err := fmt.Fprintf(w, "%sset runtimepath+=%s\n", prefix, path); err != nil {
+			return err
+		}
 		if enableIfExpr != "" {
-			fmt.Fprintln(w, "endif")
+			if _, err := fmt.Fprintln(w, "endif"); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -405,6 +415,7 @@ func (self *Hariti) addMetaVar(name string, key string, value interface{}) error
 	if err != nil {
 		return err
 	}
+	//nolint:errcheck // safe: metadata file is synchronized on write; write-time errors are checked explicitly
 	defer rw.Close()
 
 	meta := make(map[string]interface{})
@@ -434,6 +445,7 @@ func (self *Hariti) getMetaVar(name string, key string) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	//nolint:errcheck // safe: r is read-only; closing error cannot affect file integrity or durability
 	defer r.Close()
 
 	meta := make(map[string]interface{})
