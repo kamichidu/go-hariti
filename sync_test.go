@@ -91,7 +91,7 @@ func TestHariti_Sync_LocalAndRemoteAndMetadata(t *testing.T) {
 	ctx = hariti.WithErrWriter(ctx, ioutil.Discard)
 	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(ioutil.Discard))
 
-	facts, err := har.Sync(ctx, g, false)
+	facts, err := har.Sync(ctx, g, hariti.SyncOptions{Update: false})
 	if err != nil {
 		t.Fatalf("Sync failed: %v", err)
 	}
@@ -218,7 +218,7 @@ func TestHariti_Sync_SourceMismatch(t *testing.T) {
 		},
 	}
 
-	facts1, err := har.Sync(ctx, g1, false)
+	facts1, err := har.Sync(ctx, g1, hariti.SyncOptions{Update: false})
 	if err != nil {
 		t.Fatalf("first sync failed: %v", err)
 	}
@@ -249,7 +249,7 @@ func TestHariti_Sync_SourceMismatch(t *testing.T) {
 		},
 	}
 
-	facts2, err := har.Sync(ctx, g2, false)
+	facts2, err := har.Sync(ctx, g2, hariti.SyncOptions{Update: false})
 	if err != nil {
 		t.Fatalf("second sync failed: %v", err)
 	}
@@ -292,7 +292,7 @@ func TestHariti_Sync_LocalSourceMissingError(t *testing.T) {
 	ctx = hariti.WithErrWriter(ctx, ioutil.Discard)
 	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(ioutil.Discard))
 
-	_, err := har.Sync(ctx, g, false)
+	_, err := har.Sync(ctx, g, hariti.SyncOptions{Update: false})
 	if err == nil {
 		t.Error("expected sync to fail for missing local source path, but got nil")
 	}

@@ -253,7 +253,6 @@ Avoid documenting HOW.
 If a statement can be trivially derived from source code, it probably belongs in code comments, tests, or `GEMINI.md` rather than `docs/`.
 
 ---
-
 ## 8. Repository Layout
 
 ```text
@@ -264,12 +263,15 @@ If a statement can be trivially derived from source code, it probably belongs in
 |-- docs/
 |   |-- architecture.adoc   # Master architectural design documentation
 |   |-- dsl.adoc            # DSL configuration syntax specifications
+|   |-- generation.adoc     # Generation design specifications
 |   `-- graph-ir.adoc       # Resolved Graph IR specifications
 |-- encoding/
 |   `-- hariti/             # Legacy DSL parser draft
 |-- internal/
-|   |-- cli/
-|   |   `-- commands/       # Refactored CLI commands
+|   |-- cli/                # CLI presentation layer
+|   |   |-- app.go
+|   |   |-- logger.go
+|   |   `-- commands/       # Subcommand implementation files
 |   |-- config/
 |   |   `-- dsl/            # Normalized DSL parser, AST, and Loader
 |   |-- graph/              # Normalized Graph IR definitions
@@ -278,6 +280,9 @@ If a statement can be trivially derived from source code, it probably belongs in
 |   `-- git/                # Legacy VCS proxy adapter
 |-- bundle.go               # Bundle interface definition
 |-- context.go              # Context management
-|-- hariti.go               # Core sync and deployment logic
+|-- deploy.go               # Deploy usecase public API
+|-- hariti.go               # Core structures and configuration directories setup
+|-- install.go              # Install usecase public API
+|-- sync.go                 # Sync usecase public API
 `-- vcs.go                  # VCS common interface
 ```

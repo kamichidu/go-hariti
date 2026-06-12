@@ -94,13 +94,13 @@ func TestHariti_Deploy_Success(t *testing.T) {
 	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(ioutil.Discard))
 
 	// Step 1: Sync first to retrieve and write hariti.lock
-	_, err = har.Sync(ctx, g, false)
+	_, err = har.Sync(ctx, g, hariti.SyncOptions{Update: false})
 	if err != nil {
 		t.Fatalf("Sync failed: %v", err)
 	}
 
 	// Step 2: Run Deploy (Generation)
-	genID, err := har.Deploy(ctx, g)
+	genID, err := har.Deploy(ctx, g, hariti.DeployOptions{})
 	if err != nil {
 		t.Fatalf("Deploy failed: %v", err)
 	}

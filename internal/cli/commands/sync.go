@@ -10,8 +10,10 @@ import (
 	"github.com/kamichidu/go-hariti/internal/config/dsl"
 )
 
-func RunDeploy(ctx context.Context, gOpts GlobalOptions, args []string) error {
-	fs := flag.NewFlagSet("deploy", flag.ContinueOnError)
+func RunSync(ctx context.Context, gOpts GlobalOptions, args []string) error {
+	fs := flag.NewFlagSet("sync", flag.ContinueOnError)
+	var update bool
+	fs.BoolVar(&update, "update", false, "update if exists")
 
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -34,6 +36,6 @@ func RunDeploy(ctx context.Context, gOpts GlobalOptions, args []string) error {
 	}
 	har := hariti.NewHariti(cfg)
 
-	_, err = har.Deploy(ctx, g, hariti.DeployOptions{})
+	_, err = har.Sync(ctx, g, hariti.SyncOptions{Update: update})
 	return err
 }
