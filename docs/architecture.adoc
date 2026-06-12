@@ -58,6 +58,26 @@ All Version Control System (VCS) operations must be mediated through an abstract
 The fundamental source of truth inside a Lockfile is the **Commit Revision** (specific commit hash).
 - Tags, branches, and semantic versions are auxiliary metadata and do not guarantee reproducible states.
 - Re-installations and graph synchronizations must pin and verify implementations using specific commit revisions to ensure determinism.
+- **Local Sources Limitation**: Local sources are outside Hariti's lockfile reproducibility guarantee. They do not have observed git revision commits pinned; instead, they always record the virtual revision `"local"` inside `hariti.lock`.
+
+==== Location and Serialization
+The synchronization state of the Resolved Graph is recorded as a JSON file named `hariti.lock` placed in the project configuration directory. This lockfile records:
+* **id**: The Canonical Bundle ID.
+* **source**: The origin path or repository URL used to fetch the bundle.
+* **revision**: The observed post-synchronization HEAD Commit Revision (Git commit hash for remote sources, or `"local"` for local sources).
+
+[source,json]
+----
+{
+  "bundles": [
+    {
+      "id": "Shougo/vimproc.vim",
+      "source": "https://github.com/Shougo/vimproc.vim",
+      "revision": "abcdef1234567890"
+    }
+  ]
+}
+----
 
 === Generation Lifecycle and Immutability
 A deployed runtime distribution (referred to as a `generation`) must be treated as **Immutable**.

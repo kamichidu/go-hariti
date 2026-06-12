@@ -45,6 +45,7 @@ func (self *Hariti) SetupManagedDirectory() error {
 		self.config.Directory,
 		self.MetaDir(),
 		self.RepositoriesDir(),
+		self.MetadataDir(),
 		self.DeployDir(),
 	}
 	for _, directory := range directories {
@@ -74,6 +75,19 @@ func (self *Hariti) RepositoriesDir() string {
 		xdg = filepath.Join(home, ".local", "share")
 	}
 	return filepath.Join(xdg, "hariti", "repos")
+}
+
+func (self *Hariti) MetadataDir() string {
+	xdg := os.Getenv("XDG_DATA_HOME")
+	if xdg == "" {
+		home, _ := os.UserHomeDir()
+		xdg = filepath.Join(home, ".local", "share")
+	}
+	return filepath.Join(xdg, "hariti", "metadata")
+}
+
+func (self *Hariti) LockfilePath() string {
+	return filepath.Join(self.config.Directory, "hariti.lock")
 }
 
 func (self *Hariti) WriteScript(w io.Writer, header []string) error {
@@ -549,7 +563,7 @@ func (self *Hariti) createRemoteBundle(repository string) (graph.Bundle, error) 
 
 	bundle.ID = path.Base(parsedURL.String())
 	bundle.Source.URL = parsedURL
-	bundle.Source.Path = filepath.Join(self.RepositoriesDir(), url.QueryEscape(parsedURL.String()))
+	bundle.Source.Path = filepath.Join(self.RepositoriesDir(), url.QueryEscape(bundle.ID))
 	if bundle.EnableIf, err = self.getMetaString(bundle.ID, metaEnableIfExpr); err != nil {
 		return bundle, err
 	}
@@ -585,6 +599,103 @@ type RepositoryFact struct {
 	Revision string
 }
 
+type RepositoryMetadata struct {
+	BundleID string `json:"bundle_id"`
+	Source   string `json:"source"`
+}
+
+type Lockfile struct {
+	Bundles []LockfileEntry `json:"bundles"`
+}
+
+type LockfileEntry struct {
+	ID       string `json:"id"`
+	Source   string `json:"source"`
+	Revision string `json:"revision"`
+}
+
+func (self *Hariti) loadRepositoryMetadata(bundleID string) (*RepositoryMetadata, error) {
+	path := filepath.Join(self.MetadataDir(), url.QueryEscape(bundleID))
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	meta := new(RepositoryMetadata)
+	if err := json.Unmarshal(data, meta); err != nil {
+		return nil, err
+	}
+	return meta, nil
+}
+
+func (self *Hariti) writeRepositoryMetadata(bundleID string, meta *RepositoryMetadata) error {
+	path := filepath.Join(self.MetadataDir(), url.QueryEscape(bundleID))
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+
+	data, err := json.MarshalIndent(meta, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(path, data, 0644)
+}
+
+func (self *Hariti) writeLockfile(facts []RepositoryFact, g *graph.Graph) error {
+	lock := Lockfile{
+		Bundles: make([]LockfileEntry, 0, len(facts)),
+	}
+
+	factsMap := make(map[string]string)
+	for _, f := range facts {
+		factsMap[f.BundleID] = f.Revision
+	}
+
+	for _, bundle := range g.Bundles {
+		sourceExpr := ""
+		if bundle.Source.Type == graph.SourceTypeLocal {
+			sourceExpr = bundle.Source.Path
+		} else if bundle.Source.URL != nil {
+			sourceExpr = bundle.Source.URL.String()
+		}
+
+		lock.Bundles = append(lock.Bundles, LockfileEntry{
+			ID:       bundle.ID,
+			Source:   sourceExpr,
+			Revision: factsMap[bundle.ID],
+		})
+	}
+
+	data, err := json.MarshalIndent(&lock, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(self.config.Directory, 0755); err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(self.LockfilePath(), data, 0644)
+}
+
+func getSourceString(b graph.Bundle) string {
+	if b.Source.Type == graph.SourceTypeLocal {
+		return b.Source.Path
+	}
+	if b.Source.URL != nil {
+		return b.Source.URL.String()
+	}
+	return ""
+}
+
 func (self *Hariti) Sync(ctx context.Context, g *graph.Graph, update bool) ([]RepositoryFact, error) {
 	logger := LoggerFromContextKey(ctx)
 	if logger != nil {
@@ -593,29 +704,46 @@ func (self *Hariti) Sync(ctx context.Context, g *graph.Graph, update bool) ([]Re
 	facts := make([]RepositoryFact, 0, len(g.Bundles))
 
 	for _, bundle := range g.Bundles {
+		currentSource := getSourceString(bundle)
+
 		if bundle.Source.Type == graph.SourceTypeLocal {
 			// Local Source check
 			_, err := os.Stat(bundle.Source.Path)
 			if err != nil {
 				return nil, fmt.Errorf("local source path does not exist for bundle %s: %w", bundle.ID, err)
 			}
+
 			facts = append(facts, RepositoryFact{
 				BundleID: bundle.ID,
-				Revision: "",
+				Revision: "local",
 			})
 		} else if bundle.Source.Type == graph.SourceTypeRemote {
+			// Source mismatch detection
+			storedMeta, err := self.loadRepositoryMetadata(bundle.ID)
+			if err != nil {
+				return nil, err
+			}
+
+			if storedMeta != nil && storedMeta.Source != currentSource {
+				// remove stale repo directory
+				err := os.RemoveAll(bundle.Source.Path)
+				if err != nil {
+					return nil, fmt.Errorf("failed to remove repo directory on source mismatch for %s: %w", bundle.ID, err)
+				}
+			}
+
 			vcs := DetectVCS(bundle.Source.URL)
 			if vcs == nil {
 				return nil, fmt.Errorf("failed to detect VCS for bundle %s with URL %s", bundle.ID, bundle.Source.URL)
 			}
 
-			// Ensure RepositoriesDir directory exists
+			// Ensure directory structure
 			if err := self.SetupManagedDirectory(); err != nil {
 				return nil, err
 			}
 
 			// Clone / Fetch/Pull
-			err := vcs.Clone(ctx, bundle, update)
+			err = vcs.Clone(ctx, bundle, update)
 			if err != nil {
 				return nil, fmt.Errorf("failed to clone/update bundle %s: %w", bundle.ID, err)
 			}
@@ -626,11 +754,25 @@ func (self *Hariti) Sync(ctx context.Context, g *graph.Graph, update bool) ([]Re
 				return nil, fmt.Errorf("failed to observe HEAD revision for bundle %s: %w", bundle.ID, err)
 			}
 
+			// Write repository metadata
+			meta := &RepositoryMetadata{
+				BundleID: bundle.ID,
+				Source:   currentSource,
+			}
+			if err := self.writeRepositoryMetadata(bundle.ID, meta); err != nil {
+				return nil, fmt.Errorf("failed to write repository metadata for %s: %w", bundle.ID, err)
+			}
+
 			facts = append(facts, RepositoryFact{
 				BundleID: bundle.ID,
 				Revision: rev,
 			})
 		}
+	}
+
+	// Write hariti.lock
+	if err := self.writeLockfile(facts, g); err != nil {
+		return nil, fmt.Errorf("failed to write lockfile: %w", err)
 	}
 
 	return facts, nil
