@@ -82,7 +82,7 @@ func TestHariti_Deploy_Success(t *testing.T) {
 
 	// Initialize Hariti
 	cfg := &hariti.HaritiConfig{
-		Directory: filepath.Join(tmpDir, "hariti_home"),
+		Directory: filepath.Join(tmpDir, "hariti home with spaces"),
 		Writer:    ioutil.Discard,
 		ErrWriter: ioutil.Discard,
 	}

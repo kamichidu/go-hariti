@@ -39,6 +39,12 @@ func (self *Git) HeadRevision(c context.Context, bundle graph.Bundle) (string, e
 	return self.impl.HeadRevision(c, bundle, out, errOut)
 }
 
+func (self *Git) Archive(c context.Context, bundle graph.Bundle, revision string, destDir string) error {
+	errOut := hariti.ErrWriterFromContext(c)
+
+	return self.impl.Archive(c, bundle, revision, destDir, errOut)
+}
+
 var _ hariti.VCS = (*Git)(nil)
 
 func init() {

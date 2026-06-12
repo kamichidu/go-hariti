@@ -91,7 +91,8 @@ A timestamp or timestamp plus short hash may be used for human-readable director
 
 Remote bundles are exported from the repository store at the revision recorded in the lockfile.
 
-Local bundles are exported from their current local filesystem contents.
+Local bundles are not copied into the Generation artifact.
+Instead, their source paths are projected directly into the generated Vim runtime configuration.
 
 Local sources are outside Hariti's lockfile reproducibility guarantee.
 

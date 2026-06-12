@@ -1,12 +1,14 @@
 package vcs
 
 import (
+	"archive/tar"
 	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/kamichidu/go-hariti/internal/graph"
@@ -139,6 +141,64 @@ func (self *Git) HeadRevision(ctx context.Context, bundle graph.Bundle, out, err
 		}
 		return strings.TrimSpace(stdout.String()), nil
 	}
+}
+
+func (self *Git) Archive(ctx context.Context, bundle graph.Bundle, revision string, destDir string, errOut io.Writer) error {
+	localPath := bundle.Source.Path
+
+	cmd := exec.Command("git", "archive", "--format=tar", revision)
+	cmd.Dir = localPath
+	cmd.Stderr = errOut
+
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to get stdout pipe: %w", err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start git archive: %w", err)
+	}
+
+	tarReader := tar.NewReader(stdoutPipe)
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("failed to read tar header: %w", err)
+		}
+
+		target := filepath.Join(destDir, filepath.Clean(header.Name))
+
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, os.FileMode(header.Mode)); err != nil {
+				return fmt.Errorf("failed to create directory %s: %w", target, err)
+			}
+		case tar.TypeReg:
+			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+				return fmt.Errorf("failed to create parent directory: %w", err)
+			}
+
+			outFile, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR|os.O_TRUNC, os.FileMode(header.Mode))
+			if err != nil {
+				return fmt.Errorf("failed to create file %s: %w", target, err)
+			}
+
+			if _, err := io.Copy(outFile, tarReader); err != nil {
+				outFile.Close()
+				return fmt.Errorf("failed to write file %s: %w", target, err)
+			}
+			outFile.Close()
+		}
+	}
+
+	if err := cmd.Wait(); err != nil {
+		return fmt.Errorf("git archive execution failed: %w", err)
+	}
+
+	return nil
 }
 
 type Logger interface {

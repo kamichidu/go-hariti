@@ -801,9 +801,9 @@ func (self *Hariti) Sync(ctx context.Context, g *graph.Graph, update bool) ([]Re
 }
 
 type GenerationMetadata struct {
-	ID        string    `json:"id"`
-	CreatedAt string    `json:"created_at"`
-	LockHash  string    `json:"lock_hash"`
+	ID        string `json:"id"`
+	CreatedAt string `json:"created_at"`
+	LockHash  string `json:"lock_hash"`
 }
 
 func getExportedBundleDirName(bundleID string) string {
@@ -905,10 +905,12 @@ func (self *Hariti) Deploy(ctx context.Context, g *graph.Graph) (string, error) 
 				return "", fmt.Errorf("no revision found in lockfile for remote bundle %s", bundle.ID)
 			}
 
-			// Try git archive, fallback to recursive copy if git archive is unavailable
-			cmd := exec.Command("sh", "-c", fmt.Sprintf("git archive %s | tar -x -C %s", revision, destDir))
-			cmd.Dir = bundle.Source.Path
-			err := cmd.Run()
+			vcs := DetectVCS(bundle.Source.URL)
+			if vcs == nil {
+				return "", fmt.Errorf("failed to detect VCS for remote bundle %s", bundle.ID)
+			}
+
+			err := vcs.Archive(ctx, bundle, revision, destDir)
 			if err != nil {
 				// TODO: Fallback to working tree copy as per specification
 				if err := copyDir(bundle.Source.Path, destDir); err != nil {

@@ -12,6 +12,7 @@ type VCS interface {
 	Clone(c context.Context, bundle graph.Bundle, update bool) error
 	IsModified(c context.Context, bundle graph.Bundle) (bool, error)
 	HeadRevision(c context.Context, bundle graph.Bundle) (string, error)
+	Archive(c context.Context, bundle graph.Bundle, revision string, destDir string) error
 }
 
 var vcsList []VCS
