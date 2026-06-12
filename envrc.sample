@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# Hariti local sandbox environment variables
+export PATH="$(pwd)/.local/bin:${PATH}"
+export XDG_DATA_HOME="$(pwd)/.local/share"
+export HARITI_HOME="$(pwd)/.local/share/hariti"

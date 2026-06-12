@@ -1,0 +1,38 @@
+version: '3'
+
+tasks:
+  init:
+    desc: Initialize local development environment (.envrc and golangci-lint)
+    cmds:
+      - mkdir -p .local/bin
+      - test -f .envrc || cp envrc.sample .envrc
+      - test -f .local/bin/golangci-lint || GOBIN=$(pwd)/.local/bin go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
+
+  generate:
+    desc: Run code generation (e.g. Pigeon parser generation)
+    cmds:
+      - go generate ./...
+
+  build:
+    desc: Build and install the hariti CLI binary using go install into GOBIN
+    deps: [generate]
+    env:
+      GOBIN:
+        sh: echo "$PWD/.local/bin"
+    cmds:
+      - go install -ldflags "-X main.appVersion={{.VERSION}}" ./cmd/hariti
+    vars:
+      VERSION:
+        sh: git describe --tags --always --dirty 2>/dev/null || echo "dev"
+
+  lint:
+    desc: Run golangci-lint on the codebase (initialize if missing)
+    cmds:
+      - task: init
+      - .local/bin/golangci-lint run
+
+  test:
+    desc: Run all tests in the workspace
+    deps: [generate]
+    cmds:
+      - go test -v ./...
