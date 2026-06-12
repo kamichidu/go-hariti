@@ -16,7 +16,7 @@ import (
 
 type Git struct{}
 
-func (self *Git) Clone(ctx context.Context, bundle graph.Bundle, update bool, out, errOut io.Writer, logger Logger) error {
+func (g *Git) Clone(ctx context.Context, bundle graph.Bundle, update bool, out, errOut io.Writer, logger Logger) error {
 	var cmd *exec.Cmd
 	localPath := bundle.Source.Path
 	urlStr := ""
@@ -59,7 +59,7 @@ func (self *Git) Clone(ctx context.Context, bundle graph.Bundle, update bool, ou
 	}
 }
 
-func (self *Git) IsModified(ctx context.Context, bundle graph.Bundle, out, errOut io.Writer) (bool, error) {
+func (g *Git) IsModified(ctx context.Context, bundle graph.Bundle, out, errOut io.Writer) (bool, error) {
 	localPath := bundle.Source.Path
 	urlStr := ""
 	if bundle.Source.URL != nil {
@@ -68,7 +68,7 @@ func (self *Git) IsModified(ctx context.Context, bundle graph.Bundle, out, errOu
 
 	var cmd *exec.Cmd
 	if info, err := os.Stat(localPath); err != nil {
-		return false, fmt.Errorf("Repository %s not cloned into %s", urlStr, localPath)
+		return false, fmt.Errorf("repository %s not cloned into %s", urlStr, localPath)
 	} else if !info.IsDir() {
 		return false, fmt.Errorf("%s doesn't seems like a repository %s", localPath, urlStr)
 	} else {
@@ -98,7 +98,7 @@ func (self *Git) IsModified(ctx context.Context, bundle graph.Bundle, out, errOu
 	}
 }
 
-func (self *Git) CanHandle(ctx context.Context, urlStr string) bool {
+func (g *Git) CanHandle(ctx context.Context, urlStr string) bool {
 	cmd := exec.Command("git", "ls-remote", urlStr)
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
@@ -119,7 +119,7 @@ func (self *Git) CanHandle(ctx context.Context, urlStr string) bool {
 	}
 }
 
-func (self *Git) HeadRevision(ctx context.Context, bundle graph.Bundle, out, errOut io.Writer) (string, error) {
+func (g *Git) HeadRevision(ctx context.Context, bundle graph.Bundle, out, errOut io.Writer) (string, error) {
 	localPath := bundle.Source.Path
 	cmd := exec.Command("git", "rev-parse", "HEAD")
 	cmd.Dir = localPath
@@ -147,7 +147,7 @@ func (self *Git) HeadRevision(ctx context.Context, bundle graph.Bundle, out, err
 	}
 }
 
-func (self *Git) Archive(ctx context.Context, bundle graph.Bundle, revision string, destDir string, errOut io.Writer) error {
+func (g *Git) Archive(ctx context.Context, bundle graph.Bundle, revision string, destDir string, errOut io.Writer) error {
 	localPath := bundle.Source.Path
 
 	cmd := exec.Command("git", "archive", "--format=tar", revision)

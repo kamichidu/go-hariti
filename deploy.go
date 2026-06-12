@@ -74,17 +74,15 @@ func matchOS(stepOS, currentOS string) bool {
 	if stepOS == "mac" && currentOS == "darwin" {
 		return true
 	}
-	return strings.ToLower(stepOS) == strings.ToLower(currentOS)
+	return strings.EqualFold(stepOS, currentOS)
 }
 
-func (self *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptions) (string, error) {
+func (h *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptions) (string, error) {
 	logger := LoggerFromContextKey(ctx)
-	if logger != nil {
-		logger.Infof("Starting generation deployment...")
-	}
+	logger.Infof("Starting generation deployment...")
 
 	// Read project-side hariti.lock content
-	lockBytes, err := os.ReadFile(self.LockfilePath())
+	lockBytes, err := os.ReadFile(h.LockfilePath())
 	if err != nil {
 		return "", fmt.Errorf("failed to read lockfile: %w", err)
 	}
@@ -95,7 +93,7 @@ func (self *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptio
 	timestamp := time.Now().Format("20060102-150405")
 	genID := fmt.Sprintf("%s-%s", timestamp, shortHash)
 
-	genDir := filepath.Join(self.GenerationsDir(), genID)
+	genDir := filepath.Join(h.GenerationsDir(), genID)
 	if err := os.MkdirAll(genDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create generation directory: %w", err)
 	}
@@ -166,25 +164,25 @@ func (self *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptio
 		if bundle.Source.Type == graph.SourceTypeLocal {
 			localPath := bundle.Source.Path
 			if bundle.EnableIf != "" {
-				packaddContent.WriteString(fmt.Sprintf("if %s\n  set runtimepath+=%s\n", bundle.EnableIf, localPath))
+				fmt.Fprintf(&packaddContent, "if %s\n  set runtimepath+=%s\n", bundle.EnableIf, localPath)
 				afterPath := filepath.Join(localPath, "after")
 				if _, err := os.Stat(afterPath); err == nil {
-					packaddContent.WriteString(fmt.Sprintf("  set runtimepath+=%s\n", afterPath))
+					fmt.Fprintf(&packaddContent, "  set runtimepath+=%s\n", afterPath)
 				}
 				packaddContent.WriteString("endif\n")
 			} else {
-				packaddContent.WriteString(fmt.Sprintf("set runtimepath+=%s\n", localPath))
+				fmt.Fprintf(&packaddContent, "set runtimepath+=%s\n", localPath)
 				afterPath := filepath.Join(localPath, "after")
 				if _, err := os.Stat(afterPath); err == nil {
-					packaddContent.WriteString(fmt.Sprintf("set runtimepath+=%s\n", afterPath))
+					fmt.Fprintf(&packaddContent, "set runtimepath+=%s\n", afterPath)
 				}
 			}
 		} else {
 			bundleName := getExportedBundleDirName(bundle.ID)
 			if bundle.EnableIf != "" {
-				packaddContent.WriteString(fmt.Sprintf("if %s\n  packadd %s\nendif\n", bundle.EnableIf, bundleName))
+				fmt.Fprintf(&packaddContent, "if %s\n  packadd %s\nendif\n", bundle.EnableIf, bundleName)
 			} else {
-				packaddContent.WriteString(fmt.Sprintf("packadd %s\n", bundleName))
+				fmt.Fprintf(&packaddContent, "packadd %s\n", bundleName)
 			}
 		}
 	}
@@ -212,7 +210,7 @@ func (self *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptio
 	}
 
 	// Switch current symlink atomically using temporary symlink and rename
-	currentPath := self.CurrentSymlinkPath()
+	currentPath := h.CurrentSymlinkPath()
 	tempSymlink := filepath.Join(filepath.Dir(currentPath), "current.tmp")
 	_ = os.Remove(tempSymlink) // remove stale temp symlink
 

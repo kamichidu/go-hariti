@@ -11,7 +11,7 @@ func Parse(src io.Reader) ([]Bundle, error) {
 	lexer.Init(src)
 	res := yyParse(lexer)
 	if res != 0 {
-		return nil, errors.New("Failed to parse")
+		return nil, errors.New("failed to parse")
 	}
 	return lexer.Bundles, nil
 }

@@ -13,36 +13,36 @@ type Git struct {
 	impl vcs.Git
 }
 
-func (self *Git) Clone(c context.Context, bundle graph.Bundle, update bool) error {
+func (g *Git) Clone(c context.Context, bundle graph.Bundle, update bool) error {
 	log := hariti.LoggerFromContextKey(c)
 	out := hariti.WriterFromContext(c)
 	errOut := hariti.ErrWriterFromContext(c)
 
-	return self.impl.Clone(c, bundle, update, out, errOut, log)
+	return g.impl.Clone(c, bundle, update, out, errOut, log)
 }
 
-func (self *Git) IsModified(c context.Context, bundle graph.Bundle) (bool, error) {
+func (g *Git) IsModified(c context.Context, bundle graph.Bundle) (bool, error) {
 	out := hariti.WriterFromContext(c)
 	errOut := hariti.ErrWriterFromContext(c)
 
-	return self.impl.IsModified(c, bundle, out, errOut)
+	return g.impl.IsModified(c, bundle, out, errOut)
 }
 
-func (self *Git) CanHandle(c context.Context, u *url.URL) bool {
-	return self.impl.CanHandle(c, u.String())
+func (g *Git) CanHandle(c context.Context, u *url.URL) bool {
+	return g.impl.CanHandle(c, u.String())
 }
 
-func (self *Git) HeadRevision(c context.Context, bundle graph.Bundle) (string, error) {
+func (g *Git) HeadRevision(c context.Context, bundle graph.Bundle) (string, error) {
 	out := hariti.WriterFromContext(c)
 	errOut := hariti.ErrWriterFromContext(c)
 
-	return self.impl.HeadRevision(c, bundle, out, errOut)
+	return g.impl.HeadRevision(c, bundle, out, errOut)
 }
 
-func (self *Git) Archive(c context.Context, bundle graph.Bundle, revision string, destDir string) error {
+func (g *Git) Archive(c context.Context, bundle graph.Bundle, revision string, destDir string) error {
 	errOut := hariti.ErrWriterFromContext(c)
 
-	return self.impl.Archive(c, bundle, revision, destDir, errOut)
+	return g.impl.Archive(c, bundle, revision, destDir, errOut)
 }
 
 var _ hariti.VCS = (*Git)(nil)

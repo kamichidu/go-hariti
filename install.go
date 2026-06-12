@@ -13,11 +13,11 @@ type InstallOptions struct {
 	Enabled    bool
 }
 
-func (self *Hariti) Install(ctx context.Context, opts InstallOptions) error {
+func (h *Hariti) Install(ctx context.Context, opts InstallOptions) error {
 	logger := LoggerFromContextKey(ctx)
 	errCh := make(chan error, 1)
 	go func() {
-		bundle, err := self.CreateBundle(opts.Repository)
+		bundle, err := h.CreateBundle(opts.Repository)
 		if err != nil {
 			errCh <- err
 			return
@@ -26,12 +26,12 @@ func (self *Hariti) Install(ctx context.Context, opts InstallOptions) error {
 		if bundle.Source.Type == graph.SourceTypeRemote {
 			vcs := DetectVCS(bundle.Source.URL)
 			if vcs == nil {
-				errCh <- fmt.Errorf("Can't detect vcs type: %s", bundle.Source.URL)
+				errCh <- fmt.Errorf("can't detect vcs type: %s", bundle.Source.URL)
 				return
 			}
 			ctx := context.Background()
-			ctx = WithWriter(ctx, self.config.Writer)
-			ctx = WithErrWriter(ctx, self.config.ErrWriter)
+			ctx = WithWriter(ctx, h.config.Writer)
+			ctx = WithErrWriter(ctx, h.config.ErrWriter)
 			ctx = WithLogger(ctx, logger)
 			if err = vcs.Clone(ctx, bundle, opts.Update); err != nil {
 				errCh <- err
@@ -44,7 +44,7 @@ func (self *Hariti) Install(ctx context.Context, opts InstallOptions) error {
 			return
 		}
 
-		errCh <- self.Enable(opts.Repository)
+		errCh <- h.Enable(opts.Repository)
 	}()
 	select {
 	case <-ctx.Done():

@@ -12,17 +12,16 @@ type SyncOptions struct {
 	Update bool
 }
 
-func (self *Hariti) Sync(ctx context.Context, g *graph.Graph, opts SyncOptions) ([]RepositoryFact, error) {
+func (h *Hariti) Sync(ctx context.Context, g *graph.Graph, opts SyncOptions) ([]RepositoryFact, error) {
 	logger := LoggerFromContextKey(ctx)
-	if logger != nil {
-		logger.Infof("Starting repository synchronization...")
-	}
+	logger.Infof("Starting repository synchronization...")
 	facts := make([]RepositoryFact, 0, len(g.Bundles))
 
 	for _, bundle := range g.Bundles {
 		currentSource := getSourceString(bundle)
 
-		if bundle.Source.Type == graph.SourceTypeLocal {
+		switch bundle.Source.Type {
+		case graph.SourceTypeLocal:
 			// Local Source check
 			_, err := os.Stat(bundle.Source.Path)
 			if err != nil {
@@ -33,9 +32,9 @@ func (self *Hariti) Sync(ctx context.Context, g *graph.Graph, opts SyncOptions) 
 				BundleID: bundle.ID,
 				Revision: "local",
 			})
-		} else if bundle.Source.Type == graph.SourceTypeRemote {
+		case graph.SourceTypeRemote:
 			// Source mismatch detection
-			storedMeta, err := self.loadRepositoryMetadata(bundle.ID)
+			storedMeta, err := h.loadRepositoryMetadata(bundle.ID)
 			if err != nil {
 				return nil, err
 			}
@@ -54,7 +53,7 @@ func (self *Hariti) Sync(ctx context.Context, g *graph.Graph, opts SyncOptions) 
 			}
 
 			// Ensure directory structure
-			if err := self.SetupManagedDirectory(); err != nil {
+			if err := h.SetupManagedDirectory(); err != nil {
 				return nil, err
 			}
 
@@ -75,7 +74,7 @@ func (self *Hariti) Sync(ctx context.Context, g *graph.Graph, opts SyncOptions) 
 				BundleID: bundle.ID,
 				Source:   currentSource,
 			}
-			if err := self.writeRepositoryMetadata(bundle.ID, meta); err != nil {
+			if err := h.writeRepositoryMetadata(bundle.ID, meta); err != nil {
 				return nil, fmt.Errorf("failed to write repository metadata for %s: %w", bundle.ID, err)
 			}
 
@@ -87,7 +86,7 @@ func (self *Hariti) Sync(ctx context.Context, g *graph.Graph, opts SyncOptions) 
 	}
 
 	// Write hariti.lock
-	if err := self.writeLockfile(facts, g); err != nil {
+	if err := h.writeLockfile(facts, g); err != nil {
 		return nil, fmt.Errorf("failed to write lockfile: %w", err)
 	}
 

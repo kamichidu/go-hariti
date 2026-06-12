@@ -5,8 +5,10 @@ import (
 	"io"
 )
 
+type contextKey int
+
 const (
-	writerContextKey = iota
+	writerContextKey contextKey = iota
 	errWriterContextKey
 	loggerContextKey
 )
@@ -32,5 +34,10 @@ func WithLogger(parent context.Context, logger Logger) context.Context {
 }
 
 func LoggerFromContextKey(ctx context.Context) Logger {
-	return ctx.Value(loggerContextKey).(Logger)
+	if val := ctx.Value(loggerContextKey); val != nil {
+		if l, ok := val.(Logger); ok {
+			return l
+		}
+	}
+	return NewStdLogger(io.Discard)
 }

@@ -39,14 +39,14 @@ func NewHariti(config *HaritiConfig) *Hariti {
 	return &Hariti{config, NewStdLogger(io.Discard)}
 }
 
-func (self *Hariti) SetupManagedDirectory() error {
+func (h *Hariti) SetupManagedDirectory() error {
 	directories := []string{
-		self.config.Directory,
-		self.MetaDir(),
-		self.RepositoriesDir(),
-		self.MetadataDir(),
-		self.GenerationsDir(),
-		self.DeployDir(),
+		h.config.Directory,
+		h.MetaDir(),
+		h.RepositoriesDir(),
+		h.MetadataDir(),
+		h.GenerationsDir(),
+		h.DeployDir(),
 	}
 	for _, directory := range directories {
 		if info, err := os.Stat(directory); err != nil {
@@ -54,21 +54,21 @@ func (self *Hariti) SetupManagedDirectory() error {
 				return err
 			}
 		} else if !info.IsDir() {
-			return fmt.Errorf("It's looks like a file: %s", directory)
+			return fmt.Errorf("it's looks like a file: %s", directory)
 		}
 	}
 	return nil
 }
 
-func (self *Hariti) MetaDir() string {
-	return filepath.Join(self.config.Directory, "meta")
+func (h *Hariti) MetaDir() string {
+	return filepath.Join(h.config.Directory, "meta")
 }
 
-func (self *Hariti) DeployDir() string {
-	return filepath.Join(self.config.Directory, "deploy")
+func (h *Hariti) DeployDir() string {
+	return filepath.Join(h.config.Directory, "deploy")
 }
 
-func (self *Hariti) RepositoriesDir() string {
+func (h *Hariti) RepositoriesDir() string {
 	xdg := os.Getenv("XDG_DATA_HOME")
 	if xdg == "" {
 		home, _ := os.UserHomeDir()
@@ -77,7 +77,7 @@ func (self *Hariti) RepositoriesDir() string {
 	return filepath.Join(xdg, "hariti", "repos")
 }
 
-func (self *Hariti) MetadataDir() string {
+func (h *Hariti) MetadataDir() string {
 	xdg := os.Getenv("XDG_DATA_HOME")
 	if xdg == "" {
 		home, _ := os.UserHomeDir()
@@ -86,7 +86,7 @@ func (self *Hariti) MetadataDir() string {
 	return filepath.Join(xdg, "hariti", "metadata")
 }
 
-func (self *Hariti) GenerationsDir() string {
+func (h *Hariti) GenerationsDir() string {
 	xdg := os.Getenv("XDG_DATA_HOME")
 	if xdg == "" {
 		home, _ := os.UserHomeDir()
@@ -95,7 +95,7 @@ func (self *Hariti) GenerationsDir() string {
 	return filepath.Join(xdg, "hariti", "generations")
 }
 
-func (self *Hariti) CurrentSymlinkPath() string {
+func (h *Hariti) CurrentSymlinkPath() string {
 	xdg := os.Getenv("XDG_DATA_HOME")
 	if xdg == "" {
 		home, _ := os.UserHomeDir()
@@ -104,11 +104,11 @@ func (self *Hariti) CurrentSymlinkPath() string {
 	return filepath.Join(xdg, "hariti", "current")
 }
 
-func (self *Hariti) LockfilePath() string {
-	return filepath.Join(self.config.Directory, "hariti.lock")
+func (h *Hariti) LockfilePath() string {
+	return filepath.Join(h.config.Directory, "hariti.lock")
 }
 
-func (self *Hariti) WriteScript(w io.Writer, header []string) error {
+func (h *Hariti) WriteScript(w io.Writer, header []string) error {
 	// write given header lines
 	for _, line := range header {
 		if _, err := fmt.Fprintln(w, line); err != nil {
@@ -116,7 +116,7 @@ func (self *Hariti) WriteScript(w io.Writer, header []string) error {
 		}
 	}
 
-	rtp, afterRtp, err := self.vimNativeRuntimeDirs()
+	rtp, afterRtp, err := h.vimNativeRuntimeDirs()
 	if err != nil {
 		return err
 	}
@@ -124,11 +124,11 @@ func (self *Hariti) WriteScript(w io.Writer, header []string) error {
 	var appendRtp func(map[string]struct{}, string) error
 	appendRtp = func(memo map[string]struct{}, name string) error {
 		if _, dup := memo[name]; dup {
-			return fmt.Errorf("Circular dependency: %s", name)
+			return fmt.Errorf("circular dependency: %s", name)
 		}
 		memo[name] = struct{}{}
 
-		dependencies, err := self.getMetaStringSlice(name, metaDependencies)
+		dependencies, err := h.getMetaStringSlice(name, metaDependencies)
 		if err != nil {
 			return err
 		}
@@ -138,7 +138,7 @@ func (self *Hariti) WriteScript(w io.Writer, header []string) error {
 			}
 		}
 
-		pluginDir := filepath.Join(self.DeployDir(), name)
+		pluginDir := filepath.Join(h.DeployDir(), name)
 		rtp = append(rtp, pluginDir)
 
 		// has after dir or not
@@ -147,7 +147,7 @@ func (self *Hariti) WriteScript(w io.Writer, header []string) error {
 		}
 		return nil
 	}
-	enabledBundles, err := os.ReadDir(self.DeployDir())
+	enabledBundles, err := os.ReadDir(h.DeployDir())
 	if err != nil {
 		return err
 	}
@@ -162,7 +162,7 @@ func (self *Hariti) WriteScript(w io.Writer, header []string) error {
 		return err
 	}
 	for _, path := range append(rtp, afterRtp...) {
-		enableIfExpr, err := self.getMetaString(filepath.Base(path), metaEnableIfExpr)
+		enableIfExpr, err := h.getMetaString(filepath.Base(path), metaEnableIfExpr)
 		if err != nil {
 			return err
 		}
@@ -186,7 +186,7 @@ func (self *Hariti) WriteScript(w io.Writer, header []string) error {
 	return nil
 }
 
-func (self *Hariti) vimNativeRuntimeDirs() (rtp []string, afterRtp []string, err error) {
+func (h *Hariti) vimNativeRuntimeDirs() (rtp []string, afterRtp []string, err error) {
 	buf := new(bytes.Buffer)
 
 	cmd := exec.Command("vim", "--not-a-term", "-N", "-n", "--noplugin", "-i", "NONE", "-u", "NONE", "-U", "NONE", "--cmd", "echo &runtimepath", "--cmd", "q!")
@@ -208,8 +208,8 @@ func (self *Hariti) vimNativeRuntimeDirs() (rtp []string, afterRtp []string, err
 	return rtp, afterRtp, nil
 }
 
-func (self *Hariti) IsEnabled(bundle Bundle) bool {
-	if _, err := os.Stat(filepath.Join(self.DeployDir(), bundle.GetName())); err != nil {
+func (h *Hariti) IsEnabled(bundle Bundle) bool {
+	if _, err := os.Stat(filepath.Join(h.DeployDir(), bundle.GetName())); err != nil {
 		// not found in deploy dir
 		return false
 	} else {
@@ -218,17 +218,17 @@ func (self *Hariti) IsEnabled(bundle Bundle) bool {
 	}
 }
 
-func (self *Hariti) AddAlias(repository string, alias string) error {
-	bundle, err := self.CreateBundle(repository)
+func (h *Hariti) AddAlias(repository string, alias string) error {
+	bundle, err := h.CreateBundle(repository)
 	if err != nil {
 		return err
 	}
 
-	return self.addMetaVar(bundle.GetName(), metaAliases, append(bundle.GetAliases(), alias))
+	return h.addMetaVar(bundle.GetName(), metaAliases, append(bundle.GetAliases(), alias))
 }
 
-func (self *Hariti) RemoveAlias(repository string, alias string) error {
-	bundle, err := self.CreateBundle(repository)
+func (h *Hariti) RemoveAlias(repository string, alias string) error {
+	bundle, err := h.CreateBundle(repository)
 	if err != nil {
 		return err
 	}
@@ -239,43 +239,41 @@ func (self *Hariti) RemoveAlias(repository string, alias string) error {
 			filtered = append(filtered, other)
 		}
 	}
-	return self.addMetaVar(bundle.GetName(), metaAliases, filtered)
+	return h.addMetaVar(bundle.GetName(), metaAliases, filtered)
 }
 
-func (self *Hariti) ClearAlias(repository string) error {
-	bundle, err := self.CreateBundle(repository)
+func (h *Hariti) ClearAlias(repository string) error {
+	bundle, err := h.CreateBundle(repository)
 	if err != nil {
 		return err
 	}
 
-	return self.addMetaVar(bundle.GetName(), metaAliases, []string{})
+	return h.addMetaVar(bundle.GetName(), metaAliases, []string{})
 }
 
-func (self *Hariti) AddDependency(repository string, dependency string) error {
-	bundle, err := self.CreateBundle(repository)
+func (h *Hariti) AddDependency(repository string, dependency string) error {
+	bundle, err := h.CreateBundle(repository)
 	if err != nil {
 		return err
 	}
 
 	if bundle.Source.Type == graph.SourceTypeRemote {
 		dependencies := make([]string, 0)
-		for _, dep := range bundle.Dependencies {
-			dependencies = append(dependencies, dep)
-		}
-		return self.addMetaVar(bundle.GetName(), metaDependencies, append(dependencies, dependency))
+		dependencies = append(dependencies, bundle.Dependencies...)
+		return h.addMetaVar(bundle.GetName(), metaDependencies, append(dependencies, dependency))
 	} else {
 		return nil
 	}
 }
 
-func (self *Hariti) RemoveDependency(repository string, dependency string) error {
-	bundle, err := self.CreateBundle(repository)
+func (h *Hariti) RemoveDependency(repository string, dependency string) error {
+	bundle, err := h.CreateBundle(repository)
 	if err != nil {
 		return err
 	}
 
 	if bundle.Source.Type == graph.SourceTypeRemote {
-		removalBundle, err := self.CreateBundle(dependency)
+		removalBundle, err := h.CreateBundle(dependency)
 		if err != nil {
 			return err
 		}
@@ -289,31 +287,31 @@ func (self *Hariti) RemoveDependency(repository string, dependency string) error
 				filtered = append(filtered, dep)
 			}
 		}
-		return self.addMetaVar(bundle.ID, metaDependencies, filtered)
+		return h.addMetaVar(bundle.ID, metaDependencies, filtered)
 	} else {
 		return nil
 	}
 }
 
-func (self *Hariti) ClearDependencies(repository string) error {
-	bundle, err := self.CreateBundle(repository)
+func (h *Hariti) ClearDependencies(repository string) error {
+	bundle, err := h.CreateBundle(repository)
 	if err != nil {
 		return err
 	}
 
 	if bundle.Source.Type == graph.SourceTypeRemote {
-		return self.addMetaVar(bundle.ID, metaDependencies, []string{})
+		return h.addMetaVar(bundle.ID, metaDependencies, []string{})
 	} else {
 		return nil
 	}
 }
 
-func (self *Hariti) Remove(repository string, force bool) error {
-	if err := self.Disable(repository); err != nil {
+func (h *Hariti) Remove(repository string, force bool) error {
+	if err := h.Disable(repository); err != nil {
 		return err
 	}
 
-	bundle, err := self.CreateBundle(repository)
+	bundle, err := h.CreateBundle(repository)
 	if err != nil {
 		return err
 	}
@@ -326,16 +324,16 @@ func (self *Hariti) Remove(repository string, force bool) error {
 		// check repository modified
 		vcs := DetectVCS(bundle.Source.URL)
 		if vcs == nil {
-			return fmt.Errorf("Can't detect vcs type: %s", bundle.Source.URL)
+			return fmt.Errorf("can't detect vcs type: %s", bundle.Source.URL)
 		}
 		ctx := context.Background()
-		ctx = WithWriter(ctx, self.config.Writer)
-		ctx = WithErrWriter(ctx, self.config.ErrWriter)
-		ctx = WithLogger(ctx, self.Logger)
+		ctx = WithWriter(ctx, h.config.Writer)
+		ctx = WithErrWriter(ctx, h.config.ErrWriter)
+		ctx = WithLogger(ctx, h.Logger)
 		if modified, err := vcs.IsModified(ctx, bundle); err != nil {
-			return fmt.Errorf("Modification check failure: %s", err)
+			return fmt.Errorf("modification check failure: %s", err)
 		} else if modified {
-			return fmt.Errorf("Can't remove modified bundle %s", bundle.Source.Path)
+			return fmt.Errorf("can't remove modified bundle %s", bundle.Source.Path)
 		}
 	}
 	if err := os.RemoveAll(bundle.Source.Path); err != nil {
@@ -344,9 +342,9 @@ func (self *Hariti) Remove(repository string, force bool) error {
 	return nil
 }
 
-func (self *Hariti) List() ([]graph.Bundle, error) {
+func (h *Hariti) List() ([]graph.Bundle, error) {
 	// under the repositories dir, that's remote bundles
-	children, err := os.ReadDir(self.RepositoriesDir())
+	children, err := os.ReadDir(h.RepositoriesDir())
 	if err != nil {
 		return nil, err
 	}
@@ -356,26 +354,27 @@ func (self *Hariti) List() ([]graph.Bundle, error) {
 		if err != nil {
 			return bundles, err
 		}
-		if bundle, err := self.createRemoteBundle(u); err != nil {
+		if bundle, err := h.createRemoteBundle(u); err != nil {
 			return bundles, err
 		} else {
 			bundles = append(bundles, bundle)
 		}
 	}
 	// under the deploy dir and not pointed to repositories dir, that's local bundles
-	children, err = os.ReadDir(self.DeployDir())
+	children, err = os.ReadDir(h.DeployDir())
 	if err != nil {
 		return bundles, err
 	}
 	for _, child := range children {
-		evalPath, err := filepath.EvalSymlinks(filepath.Join(self.DeployDir(), child.Name()))
+		evalPath, err := filepath.EvalSymlinks(filepath.Join(h.DeployDir(), child.Name()))
 		if err != nil {
 			return bundles, err
 		}
-		if filepath.HasPrefix(evalPath, self.RepositoriesDir()) {
+		rel, err := filepath.Rel(h.RepositoriesDir(), evalPath)
+		if err == nil && !strings.HasPrefix(rel, "..") {
 			continue
 		}
-		if bundle, err := self.createLocalBundle(evalPath); err != nil {
+		if bundle, err := h.createLocalBundle(evalPath); err != nil {
 			return bundles, err
 		} else {
 			bundles = append(bundles, bundle)
@@ -384,8 +383,8 @@ func (self *Hariti) List() ([]graph.Bundle, error) {
 	return bundles, nil
 }
 
-func (self *Hariti) Enable(repository string) error {
-	bundle, err := self.CreateBundle(repository)
+func (h *Hariti) Enable(repository string) error {
+	bundle, err := h.CreateBundle(repository)
 	if err != nil {
 		return err
 	}
@@ -393,24 +392,24 @@ func (self *Hariti) Enable(repository string) error {
 	// create link
 	return mklink(
 		bundle.GetLocalPath(),
-		filepath.Join(self.DeployDir(), bundle.GetName()),
+		filepath.Join(h.DeployDir(), bundle.GetName()),
 	)
 }
 
-func (self *Hariti) EnableIf(repository string, expr string) error {
+func (h *Hariti) EnableIf(repository string, expr string) error {
 	// add meta data
-	bundle, err := self.CreateBundle(repository)
+	bundle, err := h.CreateBundle(repository)
 	if err != nil {
 		return err
 	}
-	if err := self.addMetaVar(bundle.GetName(), metaEnableIfExpr, expr); err != nil {
+	if err := h.addMetaVar(bundle.GetName(), metaEnableIfExpr, expr); err != nil {
 		return err
 	}
-	return self.Enable(repository)
+	return h.Enable(repository)
 }
 
-func (self *Hariti) addMetaVar(name string, key string, value interface{}) error {
-	rw, err := os.OpenFile(filepath.Join(self.MetaDir(), name), os.O_CREATE|os.O_RDWR, 0644)
+func (h *Hariti) addMetaVar(name string, key string, value interface{}) error {
+	rw, err := os.OpenFile(filepath.Join(h.MetaDir(), name), os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return err
 	}
@@ -421,7 +420,7 @@ func (self *Hariti) addMetaVar(name string, key string, value interface{}) error
 	if err := json.NewDecoder(rw).Decode(&meta); err != nil && err != io.EOF {
 		return err
 	}
-	if _, err = rw.Seek(0, os.SEEK_SET); err != nil {
+	if _, err = rw.Seek(0, io.SeekStart); err != nil {
 		return err
 	}
 	if err = rw.Truncate(0); err != nil {
@@ -434,8 +433,8 @@ func (self *Hariti) addMetaVar(name string, key string, value interface{}) error
 	return nil
 }
 
-func (self *Hariti) getMetaVar(name string, key string) (interface{}, error) {
-	filename := filepath.Join(self.MetaDir(), name)
+func (h *Hariti) getMetaVar(name string, key string) (interface{}, error) {
+	filename := filepath.Join(h.MetaDir(), name)
 	if _, err := os.Stat(filename); err != nil {
 		return nil, nil
 	}
@@ -458,8 +457,8 @@ func (self *Hariti) getMetaVar(name string, key string) (interface{}, error) {
 	}
 }
 
-func (self *Hariti) getMetaString(name string, key string) (string, error) {
-	value, err := self.getMetaVar(name, key)
+func (h *Hariti) getMetaString(name string, key string) (string, error) {
+	value, err := h.getMetaVar(name, key)
 	if err != nil {
 		return "", err
 	}
@@ -470,8 +469,8 @@ func (self *Hariti) getMetaString(name string, key string) (string, error) {
 		return "", nil
 	}
 }
-func (self *Hariti) getMetaStringSlice(name string, key string) ([]string, error) {
-	value, err := self.getMetaVar(name, key)
+func (h *Hariti) getMetaStringSlice(name string, key string) ([]string, error) {
+	value, err := h.getMetaVar(name, key)
 	if err != nil {
 		return nil, err
 	}
@@ -487,20 +486,20 @@ func (self *Hariti) getMetaStringSlice(name string, key string) ([]string, error
 	return ss, nil
 }
 
-func (self *Hariti) Disable(repository string) error {
-	bundle, err := self.CreateBundle(repository)
+func (h *Hariti) Disable(repository string) error {
+	bundle, err := h.CreateBundle(repository)
 	if err != nil {
 		return err
 	}
 
 	// remove links
-	filename := filepath.Join(self.DeployDir(), bundle.GetName())
+	filename := filepath.Join(h.DeployDir(), bundle.GetName())
 	if info, err := os.Lstat(filename); err != nil {
 		// there's no file, just ignore it
 	} else if info.Mode()&os.ModeSymlink == os.ModeSymlink {
 		// there's a link, delete it
 		if err := os.Remove(filename); err != nil {
-			return fmt.Errorf("Can't remove symlink: %s", err)
+			return fmt.Errorf("can't remove symlink: %s", err)
 		}
 	} else {
 		// there's non-link file
@@ -509,17 +508,17 @@ func (self *Hariti) Disable(repository string) error {
 	return nil
 }
 
-func (self *Hariti) CreateBundle(repository string) (graph.Bundle, error) {
+func (h *Hariti) CreateBundle(repository string) (graph.Bundle, error) {
 	if strings.HasPrefix(repository, "file://") {
-		return self.createLocalBundle(repository)
+		return h.createLocalBundle(repository)
 	} else if _, err := os.Stat(repository); err == nil {
-		return self.createLocalBundle(repository)
+		return h.createLocalBundle(repository)
 	} else {
-		return self.createRemoteBundle(repository)
+		return h.createRemoteBundle(repository)
 	}
 }
 
-func (self *Hariti) createRemoteBundle(repository string) (graph.Bundle, error) {
+func (h *Hariti) createRemoteBundle(repository string) (graph.Bundle, error) {
 	var err error
 
 	var bundle graph.Bundle
@@ -551,16 +550,16 @@ func (self *Hariti) createRemoteBundle(repository string) (graph.Bundle, error) 
 
 	bundle.ID = path.Base(parsedURL.String())
 	bundle.Source.URL = parsedURL
-	bundle.Source.Path = filepath.Join(self.RepositoriesDir(), url.QueryEscape(bundle.ID))
-	if bundle.EnableIf, err = self.getMetaString(bundle.ID, metaEnableIfExpr); err != nil {
+	bundle.Source.Path = filepath.Join(h.RepositoriesDir(), url.QueryEscape(bundle.ID))
+	if bundle.EnableIf, err = h.getMetaString(bundle.ID, metaEnableIfExpr); err != nil {
 		return bundle, err
 	}
-	if dependencies, err := self.getMetaStringSlice(bundle.ID, metaDependencies); err != nil {
+	if dependencies, err := h.getMetaStringSlice(bundle.ID, metaDependencies); err != nil {
 		return bundle, err
 	} else {
 		bundle.Dependencies = dependencies
 	}
-	if aliases, err := self.getMetaStringSlice(bundle.ID, metaAliases); err != nil {
+	if aliases, err := h.getMetaStringSlice(bundle.ID, metaAliases); err != nil {
 		return bundle, err
 	} else {
 		bundle.Aliases = aliases
@@ -569,12 +568,12 @@ func (self *Hariti) createRemoteBundle(repository string) (graph.Bundle, error) 
 	return bundle, nil
 }
 
-func (self *Hariti) createLocalBundle(repository string) (graph.Bundle, error) {
+func (h *Hariti) createLocalBundle(repository string) (graph.Bundle, error) {
 	var bundle graph.Bundle
 	bundle.Source.Type = graph.SourceTypeLocal
 	bundle.Source.Path = repository
 	bundle.ID = filepath.Base(bundle.Source.Path)
-	if aliases, err := self.getMetaStringSlice(bundle.ID, metaAliases); err != nil {
+	if aliases, err := h.getMetaStringSlice(bundle.ID, metaAliases); err != nil {
 		return bundle, err
 	} else {
 		bundle.Aliases = aliases
@@ -602,8 +601,8 @@ type LockfileEntry struct {
 	Revision string `json:"revision"`
 }
 
-func (self *Hariti) loadRepositoryMetadata(bundleID string) (*RepositoryMetadata, error) {
-	path := filepath.Join(self.MetadataDir(), url.QueryEscape(bundleID))
+func (h *Hariti) loadRepositoryMetadata(bundleID string) (*RepositoryMetadata, error) {
+	path := filepath.Join(h.MetadataDir(), url.QueryEscape(bundleID))
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -623,8 +622,8 @@ func (self *Hariti) loadRepositoryMetadata(bundleID string) (*RepositoryMetadata
 	return meta, nil
 }
 
-func (self *Hariti) writeRepositoryMetadata(bundleID string, meta *RepositoryMetadata) error {
-	path := filepath.Join(self.MetadataDir(), url.QueryEscape(bundleID))
+func (h *Hariti) writeRepositoryMetadata(bundleID string, meta *RepositoryMetadata) error {
+	path := filepath.Join(h.MetadataDir(), url.QueryEscape(bundleID))
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
@@ -637,7 +636,7 @@ func (self *Hariti) writeRepositoryMetadata(bundleID string, meta *RepositoryMet
 	return os.WriteFile(path, data, 0644)
 }
 
-func (self *Hariti) writeLockfile(facts []RepositoryFact, g *graph.Graph) error {
+func (h *Hariti) writeLockfile(facts []RepositoryFact, g *graph.Graph) error {
 	lock := Lockfile{
 		Bundles: make([]LockfileEntry, 0, len(facts)),
 	}
@@ -667,11 +666,11 @@ func (self *Hariti) writeLockfile(facts []RepositoryFact, g *graph.Graph) error 
 		return err
 	}
 
-	if err := os.MkdirAll(self.config.Directory, 0755); err != nil {
+	if err := os.MkdirAll(h.config.Directory, 0755); err != nil {
 		return err
 	}
 
-	return os.WriteFile(self.LockfilePath(), data, 0644)
+	return os.WriteFile(h.LockfilePath(), data, 0644)
 }
 
 func getSourceString(b graph.Bundle) string {

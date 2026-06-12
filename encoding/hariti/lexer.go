@@ -27,15 +27,15 @@ type defaultState struct {
 	Lexer *Lexer
 }
 
-func (self *defaultState) Tag() string {
+func (s *defaultState) Tag() string {
 	return "default"
 }
 
-func (self *defaultState) Whitespace() uint64 {
+func (s *defaultState) Whitespace() uint64 {
 	return scanner.GoWhitespace
 }
 
-func (self *defaultState) IsIdentRune(ch rune, i int) bool {
+func (s *defaultState) IsIdentRune(ch rune, i int) bool {
 	switch {
 	case ch >= 'a' && ch <= 'z':
 		return true
@@ -56,15 +56,15 @@ type bareStringState struct {
 	Lexer *Lexer
 }
 
-func (self *bareStringState) Tag() string {
+func (s *bareStringState) Tag() string {
 	return "bare-string"
 }
 
-func (self *bareStringState) Whitespace() uint64 {
+func (s *bareStringState) Whitespace() uint64 {
 	return scanner.GoWhitespace
 }
 
-func (self *bareStringState) IsIdentRune(ch rune, i int) bool {
+func (s *bareStringState) IsIdentRune(ch rune, i int) bool {
 	switch ch {
 	case ' ', '\t', '\r', '\n', scanner.EOF:
 		return false
@@ -80,21 +80,21 @@ type barePathStringState struct {
 	escape bool
 }
 
-func (self *barePathStringState) Tag() string {
+func (s *barePathStringState) Tag() string {
 	return "bare-path-string"
 }
-func (self *barePathStringState) Whitespace() uint64 {
+func (s *barePathStringState) Whitespace() uint64 {
 	return scanner.GoWhitespace
 }
 
-func (self *barePathStringState) IsIdentRune(ch rune, i int) bool {
+func (s *barePathStringState) IsIdentRune(ch rune, i int) bool {
 	switch ch {
 	case '\\':
-		self.escape = true
+		s.escape = true
 		return true
 	case ' ', '\r', '\n':
-		escaped := self.escape
-		self.escape = false
+		escaped := s.escape
+		s.escape = false
 		return escaped
 	case scanner.EOF:
 		return false
@@ -109,15 +109,15 @@ type rawScriptState struct {
 	Lexer *Lexer
 }
 
-func (self *rawScriptState) Tag() string {
+func (s *rawScriptState) Tag() string {
 	return "raw-script"
 }
 
-func (self *rawScriptState) Whitespace() uint64 {
+func (s *rawScriptState) Whitespace() uint64 {
 	return 1<<'\r' | 1<<' '
 }
 
-func (self *rawScriptState) IsIdentRune(ch rune, i int) bool {
+func (s *rawScriptState) IsIdentRune(ch rune, i int) bool {
 	switch ch {
 	case '\n', scanner.EOF:
 		return false
@@ -137,81 +137,81 @@ func NewLexer() *Lexer {
 	return l
 }
 
-func (self *Lexer) Scan() rune {
-	tok := self.Scanner.Scan()
+func (s *Lexer) Scan() rune {
+	tok := s.Scanner.Scan()
 
-	switch self.stateTag() {
+	switch s.stateTag() {
 	case "default":
-		switch self.TokenText() {
+		switch s.TokenText() {
 		case "use", "(":
-			self.pushState("bare-string")
+			s.pushState("bare-string")
 		case "-":
-			self.pushState("raw-script")
+			s.pushState("raw-script")
 		}
 	case "bare-string":
-		switch self.TokenText() {
+		switch s.TokenText() {
 		case "local":
-			self.pushState("bare-path-string")
+			s.pushState("bare-path-string")
 		case "as", "enable_if", "depends", "build": // following candidates for repository
-			self.popState()
+			s.popState()
 		case ")":
-			self.popState()
+			s.popState()
 		}
 	case "bare-path-string":
-		self.popState()
+		s.popState()
 	case "raw-script":
-		switch self.TokenText() {
+		switch s.TokenText() {
 		case "\n":
-			self.popState()
+			s.popState()
 		}
 	}
 	// for `use kamichidu` like syntax, in this case bare-string state always on the stack
-	if tok == scanner.EOF && len(self.state) > 1 {
-		self.popState()
+	if tok == scanner.EOF && len(s.state) > 1 {
+		s.popState()
 	}
 
 	return tok
 }
 
-func (self *Lexer) stateTag() string {
-	return self.state[len(self.state)-1].Tag()
+func (s *Lexer) stateTag() string {
+	return s.state[len(s.state)-1].Tag()
 }
 
-func (self *Lexer) pushState(tag string) {
+func (s *Lexer) pushState(tag string) {
 	var state lexerState
 	switch tag {
 	case "default":
 		state = &defaultState{
-			Lexer: self,
+			Lexer: s,
 		}
 	case "bare-string":
 		state = &bareStringState{
-			Lexer: self,
+			Lexer: s,
 		}
 	case "bare-path-string":
 		state = &barePathStringState{
-			Lexer: self,
+			Lexer: s,
 		}
 	case "raw-script":
 		state = &rawScriptState{
-			Lexer: self,
+			Lexer: s,
 		}
 	default:
 		log.Panicf("illegal state tag: %s\n", tag)
 	}
-	self.state = append(self.state, state)
-	self.Whitespace = state.Whitespace()
-	self.IsIdentRune = state.IsIdentRune
+	s.state = append(s.state, state)
+	s.Whitespace = state.Whitespace()
+	s.IsIdentRune = state.IsIdentRune
 }
 
-func (self *Lexer) popState() {
-	self.state = self.state[:len(self.state)-1]
-	if len(self.state) == 0 {
+func (s *Lexer) popState() {
+	s.state = s.state[:len(s.state)-1]
+	if len(s.state) == 0 {
 		log.Panicln("illegal state")
 	}
-	state := self.state[len(self.state)-1]
-	self.Whitespace = state.Whitespace()
-	self.IsIdentRune = state.IsIdentRune
+	state := s.state[len(s.state)-1]
+	s.Whitespace = state.Whitespace()
+	s.IsIdentRune = state.IsIdentRune
 }
 
 type Token struct {
@@ -239,13 +239,13 @@ var tokens = map[string]Token{
 	"*":         Token{OSType, "*"},
 }
 
-func (self *Lexer) Lex(lval *yySymType) int {
+func (s *Lexer) Lex(lval *yySymType) int {
 	if debug {
-		log.Printf("use state %#v", self.stateTag())
+		log.Printf("use state %#v", s.stateTag())
 	}
-	tok := self.Scan()
+	tok := s.Scan()
 	if debug {
-		log.Printf("\ttok = %#v, token = %#v\n", tok, self.TokenText())
+		log.Printf("\ttok = %#v, token = %#v\n", tok, s.TokenText())
 	}
 	if tok == EOF {
 		lval.tok = Token{
@@ -254,7 +254,7 @@ func (self *Lexer) Lex(lval *yySymType) int {
 		}
 		return EOF
 	}
-	text := self.TokenText()
+	text := s.TokenText()
 	if token, found := tokens[text]; found {
 		lval.tok = token
 		return lval.tok.Id
@@ -273,8 +273,8 @@ func (self *Lexer) Lex(lval *yySymType) int {
 	return lval.tok.Id
 }
 
-func (self *Lexer) Error(msg string) {
-	log.Printf("%s: %s\n", self.String(), msg)
+func (s *Lexer) Error(msg string) {
+	log.Printf("%s: %s\n", s.String(), msg)
 }
 
 var _ yyLexer = (*Lexer)(nil)

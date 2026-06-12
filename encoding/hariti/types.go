@@ -25,8 +25,8 @@ type LocalBundle struct {
 
 type BundleOptions []BundleOption
 
-func (self BundleOptions) Apply(dest Bundle) {
-	for _, option := range self {
+func (o BundleOptions) Apply(dest Bundle) {
+	for _, option := range o {
 		option.Apply(dest)
 	}
 	// apply defaults
@@ -51,9 +51,9 @@ type UriOption struct {
 	Value string
 }
 
-func (self *UriOption) Apply(dest Bundle) {
+func (o *UriOption) Apply(dest Bundle) {
 	if b, ok := dest.(*RemoteBundle); ok {
-		b.Uri = self.Value
+		b.Uri = o.Value
 	}
 }
 
@@ -61,9 +61,9 @@ type AliasesOption struct {
 	Value []string
 }
 
-func (self *AliasesOption) Apply(dest Bundle) {
+func (o *AliasesOption) Apply(dest Bundle) {
 	if b, ok := dest.(*RemoteBundle); ok {
-		b.Aliases = self.Value
+		b.Aliases = o.Value
 	}
 }
 
@@ -71,9 +71,9 @@ type EnableIfExprOption struct {
 	Value string
 }
 
-func (self *EnableIfExprOption) Apply(dest Bundle) {
+func (o *EnableIfExprOption) Apply(dest Bundle) {
 	if b, ok := dest.(*RemoteBundle); ok {
-		b.EnableIfExpr = self.Value
+		b.EnableIfExpr = o.Value
 	}
 }
 
@@ -81,9 +81,9 @@ type DependenciesOption struct {
 	Value []string
 }
 
-func (self *DependenciesOption) Apply(dest Bundle) {
+func (o *DependenciesOption) Apply(dest Bundle) {
 	if b, ok := dest.(*RemoteBundle); ok {
-		b.Dependencies = self.Value
+		b.Dependencies = o.Value
 	}
 }
 
@@ -91,8 +91,8 @@ type BuildScriptsOption struct {
 	Value map[string][]string
 }
 
-func (self *BuildScriptsOption) Apply(dest Bundle) {
+func (o *BuildScriptsOption) Apply(dest Bundle) {
 	if b, ok := dest.(*RemoteBundle); ok {
-		b.BuildScripts = self.Value
+		b.BuildScripts = o.Value
 	}
 }
