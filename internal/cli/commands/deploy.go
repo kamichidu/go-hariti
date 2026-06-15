@@ -1,23 +1,37 @@
 package commands
 
 import (
-	"context"
+	_ "embed"
 	"flag"
 	"fmt"
-	"os"
 
 	"github.com/kamichidu/go-hariti"
+	"github.com/kamichidu/go-hariti/internal/cli"
 	"github.com/kamichidu/go-hariti/internal/config/dsl"
 )
 
-func RunDeploy(ctx context.Context, gOpts GlobalOptions, args []string) error {
+//go:embed assets/deploy.txt
+var deployUsage string
+
+type DeployCommand struct{}
+
+func (c *DeployCommand) Name() string {
+	return "deploy"
+}
+
+func (c *DeployCommand) Run(ctx *cli.Context, args []string) error {
 	fs := flag.NewFlagSet("deploy", flag.ContinueOnError)
+	fs.SetOutput(ctx.Stderr)
+	fs.Usage = func() {
+		//nolint:errcheck // safe: writing help/usage text to stderr is a presentation output; failures do not affect logic or durability
+		fmt.Fprint(ctx.Stderr, deployUsage)
+	}
 
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 
-	configFile := gOpts.Paths.ConfigFile
+	configFile := ctx.Global.ConfigFile
 	if fs.NArg() > 0 {
 		configFile = fs.Arg(0)
 	}
@@ -28,12 +42,20 @@ func RunDeploy(ctx context.Context, gOpts GlobalOptions, args []string) error {
 	}
 
 	cfg := &hariti.HaritiConfig{
-		Paths:     gOpts.Paths,
-		Writer:    os.Stdout,
-		ErrWriter: os.Stderr,
+		Paths: hariti.Paths{
+			ConfigFile: ctx.Global.ConfigFile,
+			ConfigDir:  ctx.Global.ConfigDir,
+			DataDir:    ctx.Global.DataDir,
+		},
+		Writer:    ctx.Stdout,
+		ErrWriter: ctx.Stderr,
 	}
 	har := hariti.NewHariti(cfg)
 
-	_, err = har.Deploy(ctx, g, hariti.DeployOptions{})
+	_, err = har.Deploy(ctx.Context, g, hariti.DeployOptions{})
 	return err
+}
+
+func init() {
+	cli.Register(&DeployCommand{})
 }

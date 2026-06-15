@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/kamichidu/go-hariti/internal/cli"
+	_ "github.com/kamichidu/go-hariti/internal/cli/commands"
 	_ "github.com/kamichidu/go-hariti/vcs/git"
 )
 

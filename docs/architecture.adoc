@@ -54,6 +54,13 @@ All Version Control System (VCS) operations must be mediated through an abstract
 - **Forbidden**: Calling `exec.Command("git", ...)` directly from arbitrary parts of the codebase.
 - **Contract**: Core modules must interact through the `VCS` interface, with specific operations implemented via adapters (e.g., `GitAdapter`).
 
+==== VCS Interface Responsibilities
+The `VCS` interface defines exactly four operations:
+* `CanHandle(ctx, url)`:: Verifies if this VCS adapter can handle the given URL.
+* `Sync(ctx, bundle)`:: Synchronizes the repository cache inside the local directory (clones if missing, fetches/updates if present).
+* `HeadRevision(ctx, bundle)`:: Observes and returns the post-synchronization HEAD Commit Revision.
+* `Archive(ctx, bundle, revision, destDir)`:: Exports the repository files at the locked revision to the immutable generation folder layout.
+
 === Lockfile Reproducibility Contract
 The fundamental source of truth inside a Lockfile is the **Commit Revision** (specific commit hash).
 - Tags, branches, and semantic versions are auxiliary metadata and do not guarantee reproducible states.

@@ -2,14 +2,17 @@ package cli
 
 import (
 	"context"
+	_ "embed"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/kamichidu/go-hariti"
-	"github.com/kamichidu/go-hariti/internal/cli/commands"
 )
+
+//go:embed assets/hariti.txt
+var rootUsage string
 
 func Run(ctx context.Context, args []string) int {
 	fs := flag.NewFlagSet("hariti", flag.ContinueOnError)
@@ -30,14 +33,8 @@ func Run(ctx context.Context, args []string) int {
 	fs.BoolVar(&verbose, "v", false, "enable verbose output")
 
 	fs.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: hariti [global flags] <subcommand> [subcommand flags]\n\n")
-		fmt.Fprintf(os.Stderr, "Global Flags:\n")
-		fs.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nSubcommands:\n")
-		fmt.Fprintf(os.Stderr, "  install       Get and install a bundle\n")
-		fmt.Fprintf(os.Stderr, "  sync          Synchronize repositories and lock revisions\n")
-		fmt.Fprintf(os.Stderr, "  deploy        Deploy the active generation\n")
-		fmt.Fprintf(os.Stderr, "  dump-graph    Dump the resolved graph as JSON\n")
+		//nolint:errcheck // safe: writing help/usage text to stderr is a presentation output; failures do not affect logic or durability
+		fmt.Fprint(os.Stderr, rootUsage)
 	}
 
 	if err := fs.Parse(args); err != nil {
@@ -98,32 +95,32 @@ func Run(ctx context.Context, args []string) int {
 	subcmd := remaining[0]
 	subcmdArgs := remaining[1:]
 
-	opts := commands.GlobalOptions{
-		Paths: hariti.Paths{
+	cliCtx := &Context{
+		Context: ctx,
+		Global: &GlobalFlags{
 			ConfigFile: configFile,
 			ConfigDir:  configDir,
 			DataDir:    dataDir,
+			Verbose:    verbose,
 		},
-		Verbose: verbose,
+		Logger: logger,
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
 	}
 
-	var err error
-	switch subcmd {
-	case "install":
-		err = commands.RunInstall(ctx, opts, subcmdArgs)
-	case "sync":
-		err = commands.RunSync(ctx, opts, subcmdArgs)
-	case "deploy":
-		err = commands.RunDeploy(ctx, opts, subcmdArgs)
-	case "dump-graph":
-		err = commands.RunDumpGraph(ctx, opts, subcmdArgs)
-	default:
+	cmdMap := make(map[string]Command)
+	for _, cmd := range All() {
+		cmdMap[cmd.Name()] = cmd
+	}
+
+	cmd, found := cmdMap[subcmd]
+	if !found {
 		fmt.Fprintf(os.Stderr, "unknown subcommand: %s\n", subcmd)
 		fs.Usage()
 		return 1
 	}
 
-	if err != nil {
+	if err := cmd.Run(cliCtx, subcmdArgs); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		return 1
 	}

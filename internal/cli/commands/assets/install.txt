@@ -1,0 +1,9 @@
+Usage:
+  hariti install [options]
+
+Options:
+  -c, --config <file>       Path to bundles.hariti configuration file
+      --config-dir <dir>    Path to configuration directory
+      --data-dir <dir>      Path to data directory
+  -v, --verbose             Enable verbose output
+  -h, --help                Show this help

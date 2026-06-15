@@ -2,25 +2,30 @@ package commands_test
 
 import (
 	"context"
+	"io"
 	"strings"
 	"testing"
 
-	"github.com/kamichidu/go-hariti"
+	"github.com/kamichidu/go-hariti/internal/cli"
 	"github.com/kamichidu/go-hariti/internal/cli/commands"
 )
 
 func TestRunDumpGraph_UnsupportedFormat(t *testing.T) {
 	ctx := context.Background()
-	opts := commands.GlobalOptions{
-		Paths: hariti.Paths{
+	cliCtx := &cli.Context{
+		Context: ctx,
+		Global: &cli.GlobalFlags{
 			ConfigFile: "/tmp/bundles.hariti",
 			ConfigDir:  "/tmp",
 			DataDir:    "/tmp",
+			Verbose:    false,
 		},
-		Verbose: false,
+		Stdout: io.Discard,
+		Stderr: io.Discard,
 	}
 
-	err := commands.RunDumpGraph(ctx, opts, []string{"bundles.yml"})
+	cmd := &commands.DumpGraphCommand{}
+	err := cmd.Run(cliCtx, []string{"bundles.yml"})
 	if err == nil {
 		t.Error("expected error for unsupported format, got nil")
 	}

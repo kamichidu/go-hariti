@@ -1,25 +1,39 @@
 package commands
 
 import (
-	"context"
+	_ "embed"
 	"encoding/json"
 	"flag"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/kamichidu/go-hariti/internal/cli"
 	"github.com/kamichidu/go-hariti/internal/config/dsl"
 )
 
-func RunDumpGraph(ctx context.Context, gOpts GlobalOptions, args []string) error {
+//go:embed assets/dump-graph.txt
+var dumpGraphUsage string
+
+type DumpGraphCommand struct{}
+
+func (c *DumpGraphCommand) Name() string {
+	return "dump-graph"
+}
+
+func (c *DumpGraphCommand) Run(ctx *cli.Context, args []string) error {
 	fs := flag.NewFlagSet("dump-graph", flag.ContinueOnError)
+	fs.SetOutput(ctx.Stderr)
+	fs.Usage = func() {
+		//nolint:errcheck // safe: writing help/usage text to stderr is a presentation output; failures do not affect logic or durability
+		fmt.Fprint(ctx.Stderr, dumpGraphUsage)
+	}
 
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 
-	configFile := gOpts.Paths.ConfigFile
+	configFile := ctx.Global.ConfigFile
 	if fs.NArg() > 0 {
 		configFile = fs.Arg(0)
 	}
@@ -34,11 +48,15 @@ func RunDumpGraph(ctx context.Context, gOpts GlobalOptions, args []string) error
 		return fmt.Errorf("failed to load/convert dsl graph: %w", err)
 	}
 
-	enc := json.NewEncoder(os.Stdout)
+	enc := json.NewEncoder(ctx.Stdout)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(g); err != nil {
 		return fmt.Errorf("failed to encode graph to JSON: %w", err)
 	}
 
 	return nil
+}
+
+func init() {
+	cli.Register(&DumpGraphCommand{})
 }

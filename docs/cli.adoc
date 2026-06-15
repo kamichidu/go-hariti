@@ -113,10 +113,20 @@ Each command owns:
 * argument parsing
 * execution
 
+=== Subcommand Self-Registration
+
+Subcommands are registered by init-time self registration from `internal/cli/commands`.
+
+The binary entrypoint (`cmd/hariti/main.go`) imports the commands package for registration side effects.
+
 The root CLI only dispatches commands.
 
 == Usage Text
-Usage text must be embedded from text assets.
+The Go standard flag package is used only for parsing.
+
+User-facing usage text is maintained as embedded text assets.
+
+Hariti does not use flag.PrintDefaults() for help output because short and long aliases are modeled as one user-facing option.
 
 Root CLI usage belongs to:
 [source,text]

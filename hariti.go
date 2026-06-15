@@ -6,9 +6,7 @@ import (
 	"io"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
-	"strings"
 
 	"github.com/kamichidu/go-hariti/internal/graph"
 )
@@ -82,57 +80,6 @@ func (h *Hariti) CurrentSymlinkPath() string {
 
 func (h *Hariti) LockfilePath() string {
 	return filepath.Join(h.config.Paths.ConfigDir, "hariti.lock")
-}
-
-func (h *Hariti) CreateBundle(repository string) (graph.Bundle, error) {
-	if strings.HasPrefix(repository, "file://") {
-		return h.createLocalBundle(repository)
-	} else if _, err := os.Stat(repository); err == nil {
-		return h.createLocalBundle(repository)
-	} else {
-		return h.createRemoteBundle(repository)
-	}
-}
-
-func (h *Hariti) createRemoteBundle(repository string) (graph.Bundle, error) {
-	var bundle graph.Bundle
-	bundle.Source.Type = graph.SourceTypeRemote
-
-	var parsedURL *url.URL
-	var err error
-	if strings.HasPrefix(repository, "https://") || strings.HasPrefix(repository, "http://") {
-		parsedURL, err = url.ParseRequestURI(repository)
-		if err != nil {
-			return bundle, err
-		}
-	} else if matched, err := path.Match("*/*", repository); matched || err != nil {
-		if err != nil {
-			panic(err)
-		}
-		parsedURL, err = url.ParseRequestURI("https://" + path.Join("github.com", repository))
-		if err != nil {
-			return bundle, err
-		}
-	} else {
-		parsedURL, err = url.ParseRequestURI("https://" + path.Join("github.com", "vim-scripts", repository))
-		if err != nil {
-			return bundle, err
-		}
-	}
-
-	bundle.ID = path.Base(parsedURL.String())
-	bundle.Source.URL = parsedURL
-	bundle.Source.Path = filepath.Join(h.RepositoriesDir(), url.QueryEscape(bundle.ID))
-
-	return bundle, nil
-}
-
-func (h *Hariti) createLocalBundle(repository string) (graph.Bundle, error) {
-	var bundle graph.Bundle
-	bundle.Source.Type = graph.SourceTypeLocal
-	bundle.Source.Path = repository
-	bundle.ID = filepath.Base(bundle.Source.Path)
-	return bundle, nil
 }
 
 type RepositoryFact struct {

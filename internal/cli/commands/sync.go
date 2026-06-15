@@ -1,17 +1,32 @@
 package commands
 
 import (
-	"context"
+	_ "embed"
 	"flag"
 	"fmt"
-	"os"
 
 	"github.com/kamichidu/go-hariti"
+	"github.com/kamichidu/go-hariti/internal/cli"
 	"github.com/kamichidu/go-hariti/internal/config/dsl"
 )
 
-func RunSync(ctx context.Context, gOpts GlobalOptions, args []string) error {
+//go:embed assets/sync.txt
+var syncUsage string
+
+type SyncCommand struct{}
+
+func (c *SyncCommand) Name() string {
+	return "sync"
+}
+
+func (c *SyncCommand) Run(ctx *cli.Context, args []string) error {
 	fs := flag.NewFlagSet("sync", flag.ContinueOnError)
+	fs.SetOutput(ctx.Stderr)
+	fs.Usage = func() {
+		//nolint:errcheck // safe: writing help/usage text to stderr is a presentation output; failures do not affect logic or durability
+		fmt.Fprint(ctx.Stderr, syncUsage)
+	}
+
 	var update bool
 	fs.BoolVar(&update, "update", false, "update if exists")
 
@@ -19,7 +34,7 @@ func RunSync(ctx context.Context, gOpts GlobalOptions, args []string) error {
 		return err
 	}
 
-	configFile := gOpts.Paths.ConfigFile
+	configFile := ctx.Global.ConfigFile
 	if fs.NArg() > 0 {
 		configFile = fs.Arg(0)
 	}
@@ -30,12 +45,20 @@ func RunSync(ctx context.Context, gOpts GlobalOptions, args []string) error {
 	}
 
 	cfg := &hariti.HaritiConfig{
-		Paths:     gOpts.Paths,
-		Writer:    os.Stdout,
-		ErrWriter: os.Stderr,
+		Paths: hariti.Paths{
+			ConfigFile: ctx.Global.ConfigFile,
+			ConfigDir:  ctx.Global.ConfigDir,
+			DataDir:    ctx.Global.DataDir,
+		},
+		Writer:    ctx.Stdout,
+		ErrWriter: ctx.Stderr,
 	}
 	har := hariti.NewHariti(cfg)
 
-	_, err = har.Sync(ctx, g, hariti.SyncOptions{Update: update})
+	_, err = har.Sync(ctx.Context, g, hariti.SyncOptions{Update: update})
 	return err
+}
+
+func init() {
+	cli.Register(&SyncCommand{})
 }

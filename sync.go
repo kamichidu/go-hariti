@@ -58,9 +58,9 @@ func (h *Hariti) Sync(ctx context.Context, g *graph.Graph, opts SyncOptions) ([]
 			}
 
 			// Clone / Fetch/Pull
-			err = vcs.Clone(ctx, bundle, opts.Update)
+			err = vcs.Sync(ctx, bundle)
 			if err != nil {
-				return nil, fmt.Errorf("failed to clone/update bundle %s: %w", bundle.ID, err)
+				return nil, fmt.Errorf("failed to sync bundle %s: %w", bundle.ID, err)
 			}
 
 			// Revision observation

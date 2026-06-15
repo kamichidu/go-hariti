@@ -16,14 +16,14 @@ import (
 
 type Git struct{}
 
-func (g *Git) Clone(ctx context.Context, bundle graph.Bundle, update bool, out, errOut io.Writer, logger Logger) error {
-	var cmd *exec.Cmd
+func (g *Git) Sync(ctx context.Context, bundle graph.Bundle, out, errOut io.Writer, logger Logger) error {
 	localPath := bundle.Source.Path
 	urlStr := ""
 	if bundle.Source.URL != nil {
 		urlStr = bundle.Source.URL.String()
 	}
 
+	var cmd *exec.Cmd
 	if info, err := os.Stat(localPath); err != nil {
 		if logger != nil {
 			logger.Infof("Cloning %s to %s\n", urlStr, localPath)
@@ -31,11 +31,11 @@ func (g *Git) Clone(ctx context.Context, bundle graph.Bundle, update bool, out, 
 		cmd = exec.Command("git", "clone", "--recursive", urlStr, localPath)
 		cmd.Stdout = out
 		cmd.Stderr = errOut
-	} else if info.IsDir() && update {
+	} else if info.IsDir() {
 		if logger != nil {
-			logger.Infof("Pulling in %s", localPath)
+			logger.Infof("Fetching in %s", localPath)
 		}
-		cmd = exec.Command("git", "pull", "--ff", "--ff-only")
+		cmd = exec.Command("git", "fetch", "--all")
 		cmd.Dir = localPath
 		cmd.Stdout = out
 		cmd.Stderr = errOut
@@ -56,45 +56,6 @@ func (g *Git) Clone(ctx context.Context, bundle graph.Bundle, update bool, out, 
 		return ctx.Err()
 	case err := <-errCh:
 		return err
-	}
-}
-
-func (g *Git) IsModified(ctx context.Context, bundle graph.Bundle, out, errOut io.Writer) (bool, error) {
-	localPath := bundle.Source.Path
-	urlStr := ""
-	if bundle.Source.URL != nil {
-		urlStr = bundle.Source.URL.String()
-	}
-
-	var cmd *exec.Cmd
-	if info, err := os.Stat(localPath); err != nil {
-		return false, fmt.Errorf("repository %s not cloned into %s", urlStr, localPath)
-	} else if !info.IsDir() {
-		return false, fmt.Errorf("%s doesn't seems like a repository %s", localPath, urlStr)
-	} else {
-		cmd = exec.Command("git", "diff", "--exit-code")
-		cmd.Dir = localPath
-		cmd.Stdout = out
-		cmd.Stderr = errOut
-	}
-
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- cmd.Run()
-	}()
-	select {
-	case <-ctx.Done():
-		if cmd.Process != nil {
-			//nolint:errcheck // safe: process may already be dead during cancellation/timeout
-			cmd.Process.Kill()
-		}
-		return false, ctx.Err()
-	case err := <-errCh:
-		if err != nil {
-			return true, err
-		} else {
-			return false, nil
-		}
 	}
 }
 
