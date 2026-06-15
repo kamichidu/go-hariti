@@ -346,6 +346,10 @@ Hariti's CLI is designed to be lightweight, predictable, and fully independent f
 - **`internal/cli/commands/`**: Subcommand presentation logic (local flags and API translation).
 - **`root (package hariti)`**: Public library usecase API (orchestration).
 
+### OS-Specific Generation Pointer:
+1. **Localizing OS Differences**: Cross-platform OS differences inside the deployment engine must be strictly localized to the `current` generation pointer creation.
+2. **Current Link Representation**: On Unix-like systems (Linux/macOS), the active generation pointer `current` is represented as a symbolic link. On Windows, `current` is represented as a Directory Junction (`mklink /J`) to bypass symlink security privileges or Developer Mode requirements.
+
 ---
 
 ## 11. Paths & Environment Variables Policy

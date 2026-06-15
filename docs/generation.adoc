@@ -146,6 +146,14 @@ generations/ <generation-a>/ <generation-b>/
 current -> generations/<generation-b>
 -------------------------------------
 
+=== Current Generation Link
+
+The `current` pointer selects the active immutable generation.
+
+On Unix-like systems, Hariti represents `current` as a symbolic link.
+
+On Windows, Hariti represents `current` as a directory junction.
+
 ---
 
 == Build Steps

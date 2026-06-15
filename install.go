@@ -39,12 +39,7 @@ func (h *Hariti) Install(ctx context.Context, opts InstallOptions) error {
 			}
 		}
 
-		if !opts.Enabled {
-			errCh <- nil
-			return
-		}
-
-		errCh <- h.Enable(opts.Repository)
+		errCh <- nil
 	}()
 	select {
 	case <-ctx.Done():

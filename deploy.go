@@ -216,14 +216,14 @@ func (h *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptions)
 
 	// Point to the relative or absolute target
 	targetPath := filepath.Join("generations", genID)
-	if err := os.Symlink(targetPath, tempSymlink); err != nil {
+	if err := createGenerationLink(targetPath, tempSymlink); err != nil {
 		return "", fmt.Errorf("failed to create temporary symlink: %w", err)
 	}
 
 	if err := os.Rename(tempSymlink, currentPath); err != nil {
 		// Fallback for environments where atomic rename of symlink has OS constraints
 		_ = os.Remove(currentPath)
-		if err := os.Symlink(targetPath, currentPath); err != nil {
+		if err := createGenerationLink(targetPath, currentPath); err != nil {
 			return "", fmt.Errorf("failed to switch current symlink: %w", err)
 		}
 	}
