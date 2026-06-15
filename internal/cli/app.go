@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/kamichidu/go-hariti"
 	"github.com/kamichidu/go-hariti/internal/cli/commands"
@@ -13,10 +14,18 @@ import (
 func Run(ctx context.Context, args []string) int {
 	fs := flag.NewFlagSet("hariti", flag.ContinueOnError)
 
-	var dir string
+	var configFlag string
+	var configDirFlag string
+	var dataDirFlag string
+	var dirFlag string // deprecated -d / --directory
 	var verbose bool
-	fs.StringVar(&dir, "directory", "", "directory managed by hariti")
-	fs.StringVar(&dir, "d", "", "directory managed by hariti")
+
+	fs.StringVar(&configFlag, "config", "", "path to bundles.hariti configuration file")
+	fs.StringVar(&configFlag, "c", "", "path to bundles.hariti configuration file")
+	fs.StringVar(&configDirFlag, "config-dir", "", "path to configuration directory")
+	fs.StringVar(&dataDirFlag, "data-dir", "", "path to data directory")
+	fs.StringVar(&dirFlag, "directory", "", "deprecated: use --config-dir instead")
+	fs.StringVar(&dirFlag, "d", "", "deprecated: use --config-dir instead")
 	fs.BoolVar(&verbose, "verbose", false, "enable verbose output")
 	fs.BoolVar(&verbose, "v", false, "enable verbose output")
 
@@ -38,12 +47,43 @@ func Run(ctx context.Context, args []string) int {
 		return 1
 	}
 
-	if dir == "" {
-		dir = os.Getenv("HARITI_HOME")
+	// 1. Resolve Config Dir
+	var configDir string
+	if configDirFlag != "" {
+		configDir = configDirFlag
+	} else if dirFlag != "" {
+		fmt.Fprintf(os.Stderr, "Warning: --directory and -d are deprecated, please use --config-dir instead\n")
+		configDir = dirFlag
+	} else {
+		xdgConfig := os.Getenv("XDG_CONFIG_HOME")
+		if xdgConfig == "" {
+			home, _ := os.UserHomeDir()
+			xdgConfig = filepath.Join(home, ".config")
+		}
+		configDir = filepath.Join(xdgConfig, "hariti")
 	}
-	if dir == "" {
-		home, _ := os.UserHomeDir()
-		dir = fmt.Sprintf("%s/.hariti", home)
+
+	// 2. Resolve Config File Path
+	var configFile string
+	if configFlag != "" {
+		configFile = configFlag
+	} else if os.Getenv("HARITI_CONFIG") != "" {
+		configFile = os.Getenv("HARITI_CONFIG")
+	} else {
+		configFile = filepath.Join(configDir, "bundles.hariti")
+	}
+
+	// 3. Resolve Data Dir
+	var dataDir string
+	if dataDirFlag != "" {
+		dataDir = dataDirFlag
+	} else {
+		xdgData := os.Getenv("XDG_DATA_HOME")
+		if xdgData == "" {
+			home, _ := os.UserHomeDir()
+			xdgData = filepath.Join(home, ".local", "share")
+		}
+		dataDir = filepath.Join(xdgData, "hariti")
 	}
 
 	logger := NewCLILogger(verbose)
@@ -59,8 +99,12 @@ func Run(ctx context.Context, args []string) int {
 	subcmdArgs := remaining[1:]
 
 	opts := commands.GlobalOptions{
-		Directory: dir,
-		Verbose:   verbose,
+		Paths: hariti.Paths{
+			ConfigFile: configFile,
+			ConfigDir:  configDir,
+			DataDir:    dataDir,
+		},
+		Verbose: verbose,
 	}
 
 	var err error

@@ -22,8 +22,14 @@ const (
 	metaAliases      = "aliases"
 )
 
+type Paths struct {
+	ConfigFile string
+	ConfigDir  string
+	DataDir    string
+}
+
 type HaritiConfig struct {
-	Directory string
+	Paths     Paths
 	Writer    io.Writer
 	ErrWriter io.Writer
 	Verbose   bool
@@ -41,7 +47,8 @@ func NewHariti(config *HaritiConfig) *Hariti {
 
 func (h *Hariti) SetupManagedDirectory() error {
 	directories := []string{
-		h.config.Directory,
+		h.config.Paths.ConfigDir,
+		h.config.Paths.DataDir,
 		h.MetaDir(),
 		h.RepositoriesDir(),
 		h.MetadataDir(),
@@ -60,52 +67,40 @@ func (h *Hariti) SetupManagedDirectory() error {
 	return nil
 }
 
+func (h *Hariti) ConfigDir() string {
+	return h.config.Paths.ConfigDir
+}
+
+func (h *Hariti) DataDir() string {
+	return h.config.Paths.DataDir
+}
+
 func (h *Hariti) MetaDir() string {
-	return filepath.Join(h.config.Directory, "meta")
+	return filepath.Join(h.config.Paths.ConfigDir, "meta")
 }
 
 func (h *Hariti) DeployDir() string {
-	return filepath.Join(h.config.Directory, "deploy")
+	return filepath.Join(h.config.Paths.ConfigDir, "deploy")
 }
 
 func (h *Hariti) RepositoriesDir() string {
-	xdg := os.Getenv("XDG_DATA_HOME")
-	if xdg == "" {
-		home, _ := os.UserHomeDir()
-		xdg = filepath.Join(home, ".local", "share")
-	}
-	return filepath.Join(xdg, "hariti", "repos")
+	return filepath.Join(h.config.Paths.DataDir, "repos")
 }
 
 func (h *Hariti) MetadataDir() string {
-	xdg := os.Getenv("XDG_DATA_HOME")
-	if xdg == "" {
-		home, _ := os.UserHomeDir()
-		xdg = filepath.Join(home, ".local", "share")
-	}
-	return filepath.Join(xdg, "hariti", "metadata")
+	return filepath.Join(h.config.Paths.DataDir, "metadata")
 }
 
 func (h *Hariti) GenerationsDir() string {
-	xdg := os.Getenv("XDG_DATA_HOME")
-	if xdg == "" {
-		home, _ := os.UserHomeDir()
-		xdg = filepath.Join(home, ".local", "share")
-	}
-	return filepath.Join(xdg, "hariti", "generations")
+	return filepath.Join(h.config.Paths.DataDir, "generations")
 }
 
 func (h *Hariti) CurrentSymlinkPath() string {
-	xdg := os.Getenv("XDG_DATA_HOME")
-	if xdg == "" {
-		home, _ := os.UserHomeDir()
-		xdg = filepath.Join(home, ".local", "share")
-	}
-	return filepath.Join(xdg, "hariti", "current")
+	return filepath.Join(h.config.Paths.DataDir, "current")
 }
 
 func (h *Hariti) LockfilePath() string {
-	return filepath.Join(h.config.Directory, "hariti.lock")
+	return filepath.Join(h.config.Paths.ConfigDir, "hariti.lock")
 }
 
 func (h *Hariti) WriteScript(w io.Writer, header []string) error {
@@ -666,7 +661,7 @@ func (h *Hariti) writeLockfile(facts []RepositoryFact, g *graph.Graph) error {
 		return err
 	}
 
-	if err := os.MkdirAll(h.config.Directory, 0755); err != nil {
+	if err := os.MkdirAll(h.ConfigDir(), 0755); err != nil {
 		return err
 	}
 

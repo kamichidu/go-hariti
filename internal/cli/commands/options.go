@@ -1,6 +1,8 @@
 package commands
 
+import "github.com/kamichidu/go-hariti"
+
 type GlobalOptions struct {
-	Directory string
-	Verbose   bool
+	Paths   hariti.Paths
+	Verbose bool
 }

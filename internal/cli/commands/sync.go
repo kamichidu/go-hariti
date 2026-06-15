@@ -19,7 +19,7 @@ func RunSync(ctx context.Context, gOpts GlobalOptions, args []string) error {
 		return err
 	}
 
-	configFile := "bundles.hariti"
+	configFile := gOpts.Paths.ConfigFile
 	if fs.NArg() > 0 {
 		configFile = fs.Arg(0)
 	}
@@ -30,7 +30,7 @@ func RunSync(ctx context.Context, gOpts GlobalOptions, args []string) error {
 	}
 
 	cfg := &hariti.HaritiConfig{
-		Directory: gOpts.Directory,
+		Paths:     gOpts.Paths,
 		Writer:    os.Stdout,
 		ErrWriter: os.Stderr,
 	}

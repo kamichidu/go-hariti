@@ -80,7 +80,11 @@ func TestHariti_Sync_LocalAndRemoteAndMetadata(t *testing.T) {
 	}
 
 	cfg := &hariti.HaritiConfig{
-		Directory: filepath.Join(tmpDir, "hariti_home"),
+		Paths: hariti.Paths{
+			ConfigFile: filepath.Join(tmpDir, "hariti_home", "bundles.hariti"),
+			ConfigDir:  filepath.Join(tmpDir, "hariti_home"),
+			DataDir:    filepath.Join(xdgHome, "hariti"),
+		},
 		Writer:    io.Discard,
 		ErrWriter: io.Discard,
 	}
@@ -193,7 +197,11 @@ func TestHariti_Sync_SourceMismatch(t *testing.T) {
 	remoteURL2, _ := url.Parse("file://" + filepath.ToSlash(remoteDir2))
 
 	cfg := &hariti.HaritiConfig{
-		Directory: filepath.Join(tmpDir, "hariti_home"),
+		Paths: hariti.Paths{
+			ConfigFile: filepath.Join(tmpDir, "hariti_home", "bundles.hariti"),
+			ConfigDir:  filepath.Join(tmpDir, "hariti_home"),
+			DataDir:    filepath.Join(xdgHome, "hariti"),
+		},
 		Writer:    io.Discard,
 		ErrWriter: io.Discard,
 	}
@@ -281,7 +289,11 @@ func TestHariti_Sync_LocalSourceMissingError(t *testing.T) {
 	}
 
 	cfg := &hariti.HaritiConfig{
-		Directory: filepath.Join(tmpDir, "hariti_home"),
+		Paths: hariti.Paths{
+			ConfigFile: filepath.Join(tmpDir, "hariti_home", "bundles.hariti"),
+			ConfigDir:  filepath.Join(tmpDir, "hariti_home"),
+			DataDir:    filepath.Join(tmpDir, "hariti_data"),
+		},
 		Writer:    io.Discard,
 		ErrWriter: io.Discard,
 	}

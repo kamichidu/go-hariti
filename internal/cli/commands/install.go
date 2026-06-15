@@ -26,7 +26,7 @@ func RunInstall(ctx context.Context, gOpts GlobalOptions, args []string) error {
 	repo := fs.Arg(0)
 
 	cfg := &hariti.HaritiConfig{
-		Directory: gOpts.Directory,
+		Paths:     gOpts.Paths,
 		Writer:    os.Stdout,
 		ErrWriter: os.Stderr,
 	}

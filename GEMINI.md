@@ -335,13 +335,44 @@ Hariti's CLI is designed to be lightweight, predictable, and fully independent f
    - Subcommands: `internal/cli/commands/assets/<command>.txt`
 
 ### Global Flag Handling Rules:
-1. **Flag Position Policy**: Global flags (e.g., `-d, --directory` and `-v, --verbose`) must be accepted and resolved identically whether they are placed before or after the subcommand.
-   - `hariti -d . install` and `hariti install -d .` must yield identical behavior.
+1. **Flag Position Policy**: Global flags (e.g., `-c, --config`, `--config-dir`, `--data-dir`, and `-v, --verbose`) must be accepted and resolved identically whether they are placed before or after the subcommand.
+   - `hariti --config-dir . install` and `hariti install --config-dir .` must yield identical behavior.
 2. **Local Override Precedence**: If a global flag is specified both before and after the subcommand, the subcommand-local (later) value must take precedence.
-   - `hariti -d A install -d B` -> `directory = B`.
+   - `hariti --config-dir A install --config-dir B` -> `config-dir = B`.
 
 ### Responsibility Boundaries:
 - **`cmd/hariti/`**: Binary entrypoint ONLY.
 - **`internal/cli/`**: CLI presentation layer (global flags, parsing, routing, and context propagation).
 - **`internal/cli/commands/`**: Subcommand presentation logic (local flags and API translation).
 - **`root (package hariti)`**: Public library usecase API (orchestration).
+
+---
+
+## 11. Paths & Environment Variables Policy
+
+Hariti strictly separates Configuration files from Persistent Data directories in accordance with XDG specifications.
+
+### Directory Classification:
+1. **Configuration (Strictly Config)**: `bundles.hariti` is treated as a configuration file and resides inside the Config Directory along with lockfiles (`hariti.lock`).
+2. **Persistent Data (Strictly Data)**: The repository store (`repos/`), metadata cache (`metadata/`), active runtimes (`deploy/` / `meta/`), and generations (`generations/` and `current` pointer) reside inside the Data Directory.
+3. **Forbidden Path Mixing**: Do not place configuration files (`bundles.hariti`) inside the Data Directory, and do not treat `HARITI_DIR` as an umbrella folder mixing both concerns. `HARITI_DIR` is obsolete and strictly forbidden.
+
+### Resolution Priority Rules:
+
+#### Config File Path Resolution Priority:
+1. `--config` / `-c` CLI flag.
+2. `HARITI_CONFIG` Environment variable.
+3. `--config-dir` CLI flag + `/bundles.hariti`.
+4. `$XDG_CONFIG_HOME/hariti/bundles.hariti` (or `~/.config/hariti/bundles.hariti` fallback).
+
+#### Config Directory Path Resolution Priority:
+1. `--config-dir` CLI flag.
+2. `$XDG_CONFIG_HOME/hariti` (or `~/.config/hariti` fallback).
+
+#### Data Directory Path Resolution Priority:
+1. `--data-dir` CLI flag.
+2. `$XDG_DATA_HOME/hariti` (or `~/.local/share/hariti` fallback).
+
+### Implementation Isolation:
+- `internal/cli` is solely responsible for parsing command line flags, reading environment variables, resolving XDG default paths, and constructing the final resolved `Paths` struct.
+- The root `hariti` package and all other sub-packages must never read environment variables or resolve XDG configurations directly; they must strictly operate on the resolved `Paths` passed from the presentation layer.

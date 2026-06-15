@@ -35,11 +35,19 @@ Global flags must support both short and long forms.
 Examples:
 [source,text]
 ----
--d, --directory
+-c, --config
 -v, --verbose
 ----
 
 Short and long forms must bind to the same flag variable.
+
+In addition, the following global directory flags are supported:
+[source,text]
+----
+--config-dir  Directory where configurations (bundles.hariti) are located
+--data-dir    Directory where data (repos, metadata, generations) are located
+--directory   (Deprecated, alias for --config-dir)
+----
 
 == Flag Position Policy
 Global flags must be accepted both before and after the subcommand.
@@ -47,9 +55,9 @@ Global flags must be accepted both before and after the subcommand.
 These must be equivalent:
 [source,text]
 ----
-hariti -d . install
-hariti install -d .
-hariti install --directory .
+hariti --config-dir . install
+hariti install --config-dir .
+hariti install -c bundles.hariti
 ----
 
 If the same global flag is specified both before and after the subcommand, the later/subcommand-local value wins.
@@ -57,7 +65,7 @@ If the same global flag is specified both before and after the subcommand, the l
 Example:
 [source,text]
 ----
-hariti -d A install -d B
+hariti --config-dir A install --config-dir B
 ----
 
 Result:

@@ -5,14 +5,19 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kamichidu/go-hariti"
 	"github.com/kamichidu/go-hariti/internal/cli/commands"
 )
 
 func TestRunDumpGraph_UnsupportedFormat(t *testing.T) {
 	ctx := context.Background()
 	opts := commands.GlobalOptions{
-		Directory: "/tmp",
-		Verbose:   false,
+		Paths: hariti.Paths{
+			ConfigFile: "/tmp/bundles.hariti",
+			ConfigDir:  "/tmp",
+			DataDir:    "/tmp",
+		},
+		Verbose: false,
 	}
 
 	err := commands.RunDumpGraph(ctx, opts, []string{"bundles.yml"})
