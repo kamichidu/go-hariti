@@ -319,3 +319,29 @@ _ = tx.Rollback()
 ### Intent:
 Ignoring an error is a design decision.
 Design decisions must leave enough context for future maintainers to review them.
+
+---
+
+## 10. CLI Presentation & Boundary Rules
+
+Hariti's CLI is designed to be lightweight, predictable, and fully independent from any external CLI framework, strictly utilizing Go's standard `flag` and `context` packages.
+
+### CLI Implementation Constraints:
+1. **Forbidden External CLI Frameworks**: Do not import or depend on external CLI libraries such as `github.com/urfave/cli` or `github.com/spf13/cobra`. Use the standard `flag` package.
+2. **Thin Binary Entrypoint**: `cmd/hariti/main.go` must remain an extremely thin entrypoint that only forwards `os.Args[1:]` to the `cli` package. It must contain no business logic or flag declarations.
+3. **Structured Command Model**: Subcommands must be modeled as clean command structs implementing the `Command` interface, rather than loose, decoupled runner functions.
+4. **No Automated Help Generation**: Do not rely on the built-in `flag` package's automated help text. Help/Usage screens must be embedded and loaded from the following text assets:
+   - Root CLI: `internal/cli/assets/hariti.txt`
+   - Subcommands: `internal/cli/commands/assets/<command>.txt`
+
+### Global Flag Handling Rules:
+1. **Flag Position Policy**: Global flags (e.g., `-d, --directory` and `-v, --verbose`) must be accepted and resolved identically whether they are placed before or after the subcommand.
+   - `hariti -d . install` and `hariti install -d .` must yield identical behavior.
+2. **Local Override Precedence**: If a global flag is specified both before and after the subcommand, the subcommand-local (later) value must take precedence.
+   - `hariti -d A install -d B` -> `directory = B`.
+
+### Responsibility Boundaries:
+- **`cmd/hariti/`**: Binary entrypoint ONLY.
+- **`internal/cli/`**: CLI presentation layer (global flags, parsing, routing, and context propagation).
+- **`internal/cli/commands/`**: Subcommand presentation logic (local flags and API translation).
+- **`root (package hariti)`**: Public library usecase API (orchestration).

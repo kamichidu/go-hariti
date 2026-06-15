@@ -1,0 +1,146 @@
+= CLI Design Policy
+
+== Purpose
+Hariti uses the Go standard `flag` package and keeps CLI behavior small, predictable, and independent from any external CLI framework.
+
+The CLI layer is a presentation adapter.
+Core behavior must remain in the root `hariti` package.
+
+== Package Layout
+[source,text]
+----
+internal/cli/
+  app.go
+  command.go
+  context.go
+  flags.go
+  assets/
+    hariti.txt
+
+  commands/
+    install.go
+    sync.go
+    deploy.go
+    dump_graph.go
+    assets/
+      install.txt
+      sync.txt
+      deploy.txt
+      dump_graph.txt
+----
+
+== Global Flags
+Global flags must support both short and long forms.
+
+Examples:
+[source,text]
+----
+-d, --directory
+-v, --verbose
+----
+
+Short and long forms must bind to the same flag variable.
+
+== Flag Position Policy
+Global flags must be accepted both before and after the subcommand.
+
+These must be equivalent:
+[source,text]
+----
+hariti -d . install
+hariti install -d .
+hariti install --directory .
+----
+
+If the same global flag is specified both before and after the subcommand, the later/subcommand-local value wins.
+
+Example:
+[source,text]
+----
+hariti -d A install -d B
+----
+
+Result:
+[source,text]
+----
+directory = B
+----
+
+== CLI Context
+`internal/cli` owns a dedicated CLI context type.
+
+It must be based on `context.Context` and carry parsed CLI concerns such as:
+
+[source,go]
+----
+type Context struct {
+    context.Context
+
+    Global *GlobalFlags
+    Logger hariti.Logger
+    Stdout io.Writer
+    Stderr io.Writer
+}
+----
+
+The root CLI parser parses global flags before the subcommand, then passes the remaining arguments to the selected command.
+
+Each subcommand parses its own arguments and re-registers global flags so that global flags are also accepted after the subcommand.
+
+== Command Model
+Subcommands must be represented as command structs, not loose `RunXXX` functions.
+
+[source,go]
+----
+type Command interface {
+    Name() string
+    Run(ctx *Context, args []string) error
+}
+----
+
+Each command owns:
+* name
+* usage text
+* local flags
+* argument parsing
+* execution
+
+The root CLI only dispatches commands.
+
+== Usage Text
+Usage text must be embedded from text assets.
+
+Root CLI usage belongs to:
+[source,text]
+----
+internal/cli/assets/hariti.txt
+----
+
+Subcommand usage belongs to:
+[source,text]
+----
+internal/cli/commands/assets/<command>.txt
+----
+
+The built-in `flag` generated usage is not the primary user-facing help text.
+
+== Responsibility Boundary
+[source,text]
+----
+cmd/hariti
+  = binary entrypoint only
+
+internal/cli
+  = CLI presentation layer
+
+internal/cli/commands
+  = subcommand presentation logic
+
+package hariti
+  = public usecase API
+
+internal/*
+  = implementation details
+----
+
+The CLI layer must call the root `hariti` package and must not deeply orchestrate internal implementation packages.
