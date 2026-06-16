@@ -111,7 +111,8 @@ Generation and Projection Lifecycle::
 
 To enforce high observability and clean interface boundaries, Hariti centralizes logging and behavioral controls:
 * **Logger Injection Point**: `HaritiConfig.Logger` is the single explicit injection point for custom logger implementations in the root package. The root `Hariti` struct unexports its logger field to hide implementation details.
-* **Unified Level Management**: The legacy `HaritiConfig.Verbose` configuration field is abolished. Behavioral log controls are strictly unified around standard severity levels (`debug`, `info`, `warn`, `error`, `alert`, `panic`).
+* **Unified Level Management**: The legacy `HaritiConfig.Verbose` configuration field is abolished. Behavioral log controls are strictly unified around standard severity levels (`debug`, `info`, `warn`, `error`).
+* **Observability-Only Responsibility**: A logger is strictly an observability component. It must never terminate the process, panic, or alter the program's control flow. Program lifecycle and termination decisions belong exclusively to the calling application or CLI presentation layers.
 * **Verbose to Debug Unification**: The `--verbose` / `-v` flag in CLI commands maps directly to enabling `debug` level logging filtration.
 * **Colog Centralized Filtering**: Actual level-based filtering and terminal-friendly colored output formatting are delegated to `github.com/comail/colog`. The default log filter level is set to `info` (INFO and above are printed, while DEBUG is hidden unless verbose mode is enabled).
 
