@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kamichidu/go-hariti"
 	"github.com/kamichidu/go-hariti/graph"
 	"github.com/kamichidu/go-hariti/vcs"
 )
@@ -37,9 +36,9 @@ func runCmd(ctx context.Context, cmd *exec.Cmd) error {
 }
 
 func (g *Git) Sync(c context.Context, bundle graph.Bundle) error {
-	log := hariti.LoggerFromContextKey(c)
-	out := hariti.WriterFromContext(c)
-	errOut := hariti.ErrWriterFromContext(c)
+	log := vcs.LoggerFromContext(c)
+	out := vcs.WriterFromContext(c)
+	errOut := vcs.ErrWriterFromContext(c)
 
 	localPath := bundle.Source.Path
 	urlStr := ""
@@ -143,7 +142,7 @@ func (g *Git) CanHandle(c context.Context, u *url.URL) bool {
 }
 
 func (g *Git) HeadRevision(c context.Context, bundle graph.Bundle) (string, error) {
-	errOut := hariti.ErrWriterFromContext(c)
+	errOut := vcs.ErrWriterFromContext(c)
 	localPath := bundle.Source.Path
 	cmd := exec.Command("git", "rev-parse", "HEAD")
 	cmd.Dir = localPath
@@ -172,7 +171,7 @@ func (g *Git) HeadRevision(c context.Context, bundle graph.Bundle) (string, erro
 }
 
 func (g *Git) Archive(c context.Context, bundle graph.Bundle, revision string, destDir string) error {
-	errOut := hariti.ErrWriterFromContext(c)
+	errOut := vcs.ErrWriterFromContext(c)
 	localPath := bundle.Source.Path
 
 	cmd := exec.Command("git", "archive", "--format=tar", revision)

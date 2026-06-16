@@ -13,8 +13,7 @@ type SyncOptions struct {
 }
 
 func (h *Hariti) Sync(ctx context.Context, g *graph.Graph, opts SyncOptions) ([]RepositoryFact, error) {
-	logger := LoggerFromContextKey(ctx)
-	logger.Infof("Starting repository synchronization...")
+	h.Logger.Infof("Starting repository synchronization...")
 	facts := make([]RepositoryFact, 0, len(g.Bundles))
 
 	for _, bundle := range g.Bundles {
@@ -47,8 +46,8 @@ func (h *Hariti) Sync(ctx context.Context, g *graph.Graph, opts SyncOptions) ([]
 				}
 			}
 
-			vcs := vcs.Detect(bundle.Source.URL)
-			if vcs == nil {
+			v := vcs.Detect(bundle.Source.URL)
+			if v == nil {
 				return nil, fmt.Errorf("failed to detect VCS for bundle %s with URL %s", bundle.ID, bundle.Source.URL)
 			}
 
@@ -58,13 +57,14 @@ func (h *Hariti) Sync(ctx context.Context, g *graph.Graph, opts SyncOptions) ([]
 			}
 
 			// Clone / Fetch/Pull
-			err = vcs.Sync(ctx, bundle)
+			vcsCtx := vcs.WithLogger(ctx, h.Logger)
+			err = v.Sync(vcsCtx, bundle)
 			if err != nil {
 				return nil, fmt.Errorf("failed to sync bundle %s: %w", bundle.ID, err)
 			}
 
 			// Revision observation
-			rev, err := vcs.HeadRevision(ctx, bundle)
+			rev, err := v.HeadRevision(vcsCtx, bundle)
 			if err != nil {
 				return nil, fmt.Errorf("failed to observe HEAD revision for bundle %s: %w", bundle.ID, err)
 			}

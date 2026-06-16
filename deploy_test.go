@@ -12,6 +12,7 @@ import (
 
 	"github.com/kamichidu/go-hariti"
 	"github.com/kamichidu/go-hariti/graph"
+	"github.com/kamichidu/go-hariti/vcs"
 	_ "github.com/kamichidu/go-hariti/vcs/git"
 )
 
@@ -89,12 +90,13 @@ func TestHariti_Deploy_Success(t *testing.T) {
 		},
 		Writer:    io.Discard,
 		ErrWriter: io.Discard,
+		Logger:    hariti.NewStdLogger(io.Discard),
 	}
 	har := hariti.NewHariti(cfg)
 
 	ctx := context.Background()
-	ctx = hariti.WithWriter(ctx, io.Discard)
-	ctx = hariti.WithErrWriter(ctx, io.Discard)
+	ctx = vcs.WithWriter(ctx, io.Discard)
+	ctx = vcs.WithErrWriter(ctx, io.Discard)
 	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(io.Discard))
 
 	// Step 1: Sync first to retrieve and write hariti.lock

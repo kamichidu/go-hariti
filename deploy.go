@@ -79,8 +79,7 @@ func matchOS(stepOS, currentOS string) bool {
 }
 
 func (h *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptions) (string, error) {
-	logger := LoggerFromContextKey(ctx)
-	logger.Infof("Starting generation deployment...")
+	h.Logger.Infof("Starting generation deployment...")
 
 	// Read project-side hariti.lock content
 	lockBytes, err := os.ReadFile(h.LockfilePath())
@@ -128,12 +127,13 @@ func (h *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptions)
 				return "", fmt.Errorf("no revision found in lockfile for remote bundle %s", bundle.ID)
 			}
 
-			vcs := vcs.Detect(bundle.Source.URL)
-			if vcs == nil {
+			v := vcs.Detect(bundle.Source.URL)
+			if v == nil {
 				return "", fmt.Errorf("failed to detect VCS for remote bundle %s", bundle.ID)
 			}
 
-			err := vcs.Archive(ctx, bundle, revision, destDir)
+			vcsCtx := vcs.WithLogger(ctx, h.Logger)
+			err := v.Archive(vcsCtx, bundle, revision, destDir)
 			if err != nil {
 				// TODO: Fallback to working tree copy as per specification
 				if err := copyDir(bundle.Source.Path, destDir); err != nil {

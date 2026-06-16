@@ -14,6 +14,7 @@ import (
 
 	"github.com/kamichidu/go-hariti"
 	"github.com/kamichidu/go-hariti/graph"
+	"github.com/kamichidu/go-hariti/vcs"
 	_ "github.com/kamichidu/go-hariti/vcs/git"
 )
 
@@ -92,12 +93,13 @@ func TestHariti_Sync_LocalAndRemoteAndMetadata(t *testing.T) {
 		},
 		Writer:    io.Discard,
 		ErrWriter: io.Discard,
+		Logger:    hariti.NewStdLogger(io.Discard),
 	}
 	har := hariti.NewHariti(cfg)
 
 	ctx := context.Background()
-	ctx = hariti.WithWriter(ctx, io.Discard)
-	ctx = hariti.WithErrWriter(ctx, io.Discard)
+	ctx = vcs.WithWriter(ctx, io.Discard)
+	ctx = vcs.WithErrWriter(ctx, io.Discard)
 	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(io.Discard))
 
 	facts, err := har.Sync(ctx, g, hariti.SyncOptions{})
@@ -209,12 +211,13 @@ func TestHariti_Sync_SourceMismatch(t *testing.T) {
 		},
 		Writer:    io.Discard,
 		ErrWriter: io.Discard,
+		Logger:    hariti.NewStdLogger(io.Discard),
 	}
 	har := hariti.NewHariti(cfg)
 
 	ctx := context.Background()
-	ctx = hariti.WithWriter(ctx, io.Discard)
-	ctx = hariti.WithErrWriter(ctx, io.Discard)
+	ctx = vcs.WithWriter(ctx, io.Discard)
+	ctx = vcs.WithErrWriter(ctx, io.Discard)
 	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(io.Discard))
 
 	// Step 1: Sync with remoteURL1
@@ -301,12 +304,13 @@ func TestHariti_Sync_LocalSourceMissingError(t *testing.T) {
 		},
 		Writer:    io.Discard,
 		ErrWriter: io.Discard,
+		Logger:    hariti.NewStdLogger(io.Discard),
 	}
 	har := hariti.NewHariti(cfg)
 
 	ctx := context.Background()
-	ctx = hariti.WithWriter(ctx, io.Discard)
-	ctx = hariti.WithErrWriter(ctx, io.Discard)
+	ctx = vcs.WithWriter(ctx, io.Discard)
+	ctx = vcs.WithErrWriter(ctx, io.Discard)
 	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(io.Discard))
 
 	_, err := har.Sync(ctx, g, hariti.SyncOptions{})
@@ -369,12 +373,13 @@ func TestHariti_Sync_UpstreamResetAdvance(t *testing.T) {
 		},
 		Writer:    io.Discard,
 		ErrWriter: io.Discard,
+		Logger:    hariti.NewStdLogger(io.Discard),
 	}
 	har := hariti.NewHariti(cfg)
 
 	ctx := context.Background()
-	ctx = hariti.WithWriter(ctx, io.Discard)
-	ctx = hariti.WithErrWriter(ctx, io.Discard)
+	ctx = vcs.WithWriter(ctx, io.Discard)
+	ctx = vcs.WithErrWriter(ctx, io.Discard)
 	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(io.Discard))
 
 	// Step 1: Clone initially
@@ -459,12 +464,13 @@ func TestHariti_Sync_NoUpstreamError(t *testing.T) {
 		},
 		Writer:    io.Discard,
 		ErrWriter: io.Discard,
+		Logger:    hariti.NewStdLogger(io.Discard),
 	}
 	har := hariti.NewHariti(cfg)
 
 	ctx := context.Background()
-	ctx = hariti.WithWriter(ctx, io.Discard)
-	ctx = hariti.WithErrWriter(ctx, io.Discard)
+	ctx = vcs.WithWriter(ctx, io.Discard)
+	ctx = vcs.WithErrWriter(ctx, io.Discard)
 	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(io.Discard))
 
 	// Step 3: Run Sync. Since cache repo exists but does NOT have upstream tracked, it must fail with an explicit error!
@@ -544,12 +550,13 @@ func TestHariti_Sync_SubmoduleUpdate(t *testing.T) {
 		},
 		Writer:    io.Discard,
 		ErrWriter: io.Discard,
+		Logger:    hariti.NewStdLogger(io.Discard),
 	}
 	har := hariti.NewHariti(cfg)
 
 	ctx := context.Background()
-	ctx = hariti.WithWriter(ctx, io.Discard)
-	ctx = hariti.WithErrWriter(ctx, io.Discard)
+	ctx = vcs.WithWriter(ctx, io.Discard)
+	ctx = vcs.WithErrWriter(ctx, io.Discard)
 	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(io.Discard))
 
 	// Step 1: Sync first to clone main and recursively clone submodule

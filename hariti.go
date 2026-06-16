@@ -22,6 +22,7 @@ type HaritiConfig struct {
 	Writer    io.Writer
 	ErrWriter io.Writer
 	Verbose   bool
+	Logger    Logger
 }
 
 type Hariti struct {
@@ -31,7 +32,11 @@ type Hariti struct {
 }
 
 func NewHariti(config *HaritiConfig) *Hariti {
-	return &Hariti{config, NewStdLogger(io.Discard)}
+	logger := config.Logger
+	if logger == nil {
+		logger = NewStdLogger(io.Discard)
+	}
+	return &Hariti{config, logger}
 }
 
 func (h *Hariti) SetupManagedDirectory() error {

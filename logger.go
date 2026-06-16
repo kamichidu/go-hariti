@@ -1,11 +1,14 @@
 package hariti
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
 	"strings"
 	"sync"
+
+	"github.com/kamichidu/go-hariti/vcs"
 )
 
 type Logger interface {
@@ -113,4 +116,17 @@ func (l *stdLogger) log(lvl rune, msg string) {
 	default:
 		l.l.Print(msg)
 	}
+}
+
+func WithLogger(parent context.Context, logger Logger) context.Context {
+	return vcs.WithLogger(parent, logger)
+}
+
+func LoggerFromContextKey(ctx context.Context) Logger {
+	if val := vcs.LoggerFromContext(ctx); val != nil {
+		if l, ok := val.(Logger); ok {
+			return l
+		}
+	}
+	return NewStdLogger(io.Discard)
 }

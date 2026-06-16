@@ -49,6 +49,7 @@ func (c *SyncCommand) Run(ctx *cli.Context, args []string) error {
 		},
 		Writer:    ctx.Stdout,
 		ErrWriter: ctx.Stderr,
+		Logger:    ctx.Logger,
 	}
 	har := hariti.NewHariti(cfg)
 
