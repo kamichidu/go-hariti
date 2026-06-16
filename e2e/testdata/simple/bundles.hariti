@@ -1,0 +1,10 @@
+use dep-plugin {
+  source $E2E_PLUGINS_DIR/dep-plugin
+}
+
+use local-plugin {
+  source $E2E_PLUGINS_DIR/local-plugin
+  depends (
+    dep-plugin
+  )
+}

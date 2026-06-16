@@ -1,0 +1,7 @@
+<HOME>/.vim
+<VIMPARENT>/vimfiles
+<VIMRUNTIME>
+<VIMPARENT>/vimfiles/after
+<HOME>/.vim/after
+<TESTDIR>/simple/plugins/dep-plugin
+<TESTDIR>/simple/plugins/local-plugin
