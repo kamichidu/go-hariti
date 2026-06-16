@@ -100,7 +100,7 @@ func TestHariti_Sync_LocalAndRemoteAndMetadata(t *testing.T) {
 	ctx = hariti.WithErrWriter(ctx, io.Discard)
 	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(io.Discard))
 
-	facts, err := har.Sync(ctx, g, hariti.SyncOptions{Update: false})
+	facts, err := har.Sync(ctx, g, hariti.SyncOptions{})
 	if err != nil {
 		t.Fatalf("Sync failed: %v", err)
 	}
@@ -231,7 +231,7 @@ func TestHariti_Sync_SourceMismatch(t *testing.T) {
 		},
 	}
 
-	facts1, err := har.Sync(ctx, g1, hariti.SyncOptions{Update: false})
+	facts1, err := har.Sync(ctx, g1, hariti.SyncOptions{})
 	if err != nil {
 		t.Fatalf("first sync failed: %v", err)
 	}
@@ -262,7 +262,7 @@ func TestHariti_Sync_SourceMismatch(t *testing.T) {
 		},
 	}
 
-	facts2, err := har.Sync(ctx, g2, hariti.SyncOptions{Update: false})
+	facts2, err := har.Sync(ctx, g2, hariti.SyncOptions{})
 	if err != nil {
 		t.Fatalf("second sync failed: %v", err)
 	}
@@ -309,7 +309,7 @@ func TestHariti_Sync_LocalSourceMissingError(t *testing.T) {
 	ctx = hariti.WithErrWriter(ctx, io.Discard)
 	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(io.Discard))
 
-	_, err := har.Sync(ctx, g, hariti.SyncOptions{Update: false})
+	_, err := har.Sync(ctx, g, hariti.SyncOptions{})
 	if err == nil {
 		t.Error("expected sync to fail for missing local source path, but got nil")
 	}
@@ -378,7 +378,7 @@ func TestHariti_Sync_UpstreamResetAdvance(t *testing.T) {
 	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(io.Discard))
 
 	// Step 1: Clone initially
-	facts1, err := har.Sync(ctx, g, hariti.SyncOptions{Update: false})
+	facts1, err := har.Sync(ctx, g, hariti.SyncOptions{})
 	if err != nil {
 		t.Fatalf("initial Sync failed: %v", err)
 	}
@@ -398,7 +398,7 @@ func TestHariti_Sync_UpstreamResetAdvance(t *testing.T) {
 	rev2 := runGitCmdInDir(nil, remoteRepoDir, "rev-parse", "HEAD")
 
 	// Step 4: Run Sync again. It must fetch, wipe local changes (hard reset), and advance HEAD to rev2!
-	facts2, err := har.Sync(ctx, g, hariti.SyncOptions{Update: false})
+	facts2, err := har.Sync(ctx, g, hariti.SyncOptions{})
 	if err != nil {
 		t.Fatalf("second Sync failed: %v", err)
 	}
@@ -468,7 +468,7 @@ func TestHariti_Sync_NoUpstreamError(t *testing.T) {
 	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(io.Discard))
 
 	// Step 3: Run Sync. Since cache repo exists but does NOT have upstream tracked, it must fail with an explicit error!
-	_, err := har.Sync(ctx, g, hariti.SyncOptions{Update: false})
+	_, err := har.Sync(ctx, g, hariti.SyncOptions{})
 	if err == nil {
 		t.Error("expected Sync to fail due to missing tracked upstream ref, but got nil")
 	}
@@ -553,7 +553,7 @@ func TestHariti_Sync_SubmoduleUpdate(t *testing.T) {
 	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(io.Discard))
 
 	// Step 1: Sync first to clone main and recursively clone submodule
-	facts1, err := har.Sync(ctx, g, hariti.SyncOptions{Update: false})
+	facts1, err := har.Sync(ctx, g, hariti.SyncOptions{})
 	if err != nil {
 		t.Fatalf("first Sync failed: %v", err)
 	}
@@ -584,7 +584,7 @@ func TestHariti_Sync_SubmoduleUpdate(t *testing.T) {
 	mainRev2 := runGitCmdInDir(nil, mainRepoDir, "rev-parse", "HEAD")
 
 	// Step 4: Run Sync again. It must fetch, hard reset, find `.gitmodules` exists, and run submodule update!
-	facts2, err := har.Sync(ctx, g, hariti.SyncOptions{Update: false})
+	facts2, err := har.Sync(ctx, g, hariti.SyncOptions{})
 	if err != nil {
 		t.Fatalf("second Sync failed: %v", err)
 	}

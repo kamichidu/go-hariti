@@ -9,7 +9,6 @@ import (
 )
 
 type SyncOptions struct {
-	Update bool
 }
 
 func (h *Hariti) Sync(ctx context.Context, g *graph.Graph, opts SyncOptions) ([]RepositoryFact, error) {

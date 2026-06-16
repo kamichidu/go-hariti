@@ -98,7 +98,7 @@ func TestHariti_Deploy_Success(t *testing.T) {
 	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(io.Discard))
 
 	// Step 1: Sync first to retrieve and write hariti.lock
-	_, err = har.Sync(ctx, g, hariti.SyncOptions{Update: false})
+	_, err = har.Sync(ctx, g, hariti.SyncOptions{})
 	if err != nil {
 		t.Fatalf("Sync failed: %v", err)
 	}

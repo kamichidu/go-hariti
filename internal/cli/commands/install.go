@@ -53,9 +53,7 @@ func (c *InstallCommand) Run(ctx *cli.Context, args []string) error {
 	har := hariti.NewHariti(cfg)
 
 	return har.Install(ctx.Context, g, hariti.InstallOptions{
-		Sync: hariti.SyncOptions{
-			Update: false,
-		},
+		Sync:   hariti.SyncOptions{},
 		Deploy: hariti.DeployOptions{},
 	})
 }

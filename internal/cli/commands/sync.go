@@ -27,9 +27,6 @@ func (c *SyncCommand) Run(ctx *cli.Context, args []string) error {
 		fmt.Fprint(ctx.Stderr, syncUsage)
 	}
 
-	var update bool
-	fs.BoolVar(&update, "update", false, "update if exists")
-
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -55,7 +52,7 @@ func (c *SyncCommand) Run(ctx *cli.Context, args []string) error {
 	}
 	har := hariti.NewHariti(cfg)
 
-	_, err = har.Sync(ctx.Context, g, hariti.SyncOptions{Update: update})
+	_, err = har.Sync(ctx.Context, g, hariti.SyncOptions{})
 	return err
 }
 

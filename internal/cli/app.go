@@ -20,15 +20,12 @@ func Run(ctx context.Context, args []string) int {
 	var configFlag string
 	var configDirFlag string
 	var dataDirFlag string
-	var dirFlag string // deprecated -d / --directory
 	var verbose bool
 
 	fs.StringVar(&configFlag, "config", "", "path to bundles.hariti configuration file")
 	fs.StringVar(&configFlag, "c", "", "path to bundles.hariti configuration file")
 	fs.StringVar(&configDirFlag, "config-dir", "", "path to configuration directory")
 	fs.StringVar(&dataDirFlag, "data-dir", "", "path to data directory")
-	fs.StringVar(&dirFlag, "directory", "", "deprecated: use --config-dir instead")
-	fs.StringVar(&dirFlag, "d", "", "deprecated: use --config-dir instead")
 	fs.BoolVar(&verbose, "verbose", false, "enable verbose output")
 	fs.BoolVar(&verbose, "v", false, "enable verbose output")
 
@@ -48,9 +45,6 @@ func Run(ctx context.Context, args []string) int {
 	var configDir string
 	if configDirFlag != "" {
 		configDir = configDirFlag
-	} else if dirFlag != "" {
-		fmt.Fprintf(os.Stderr, "Warning: --directory and -d are deprecated, please use --config-dir instead\n")
-		configDir = dirFlag
 	} else {
 		xdgConfig := os.Getenv("XDG_CONFIG_HOME")
 		if xdgConfig == "" {

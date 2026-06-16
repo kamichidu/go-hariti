@@ -46,7 +46,6 @@ In addition, the following global directory flags are supported:
 ----
 --config-dir  Directory where configurations (bundles.hariti) are located
 --data-dir    Directory where data (repos, metadata, generations) are located
---directory   (Deprecated, alias for --config-dir)
 ----
 
 == Flag Position Policy
