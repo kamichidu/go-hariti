@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kamichidu/go-hariti/internal/graph"
+	"github.com/kamichidu/go-hariti/graph"
 )
 
 func ResolveSource(expr string) (graph.Source, error) {

@@ -3,8 +3,8 @@ package dsl
 import (
 	"fmt"
 
+	"github.com/kamichidu/go-hariti/graph"
 	"github.com/kamichidu/go-hariti/internal/config/dsl/ast"
-	"github.com/kamichidu/go-hariti/internal/graph"
 )
 
 func ToGraph(file *ast.File) (*graph.Graph, error) {

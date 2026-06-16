@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/kamichidu/go-hariti/graph"
 	"github.com/kamichidu/go-hariti/internal/config/dsl"
-	"github.com/kamichidu/go-hariti/internal/graph"
 )
 
 func TestResolveSource_Local(t *testing.T) {

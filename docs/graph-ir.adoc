@@ -2,7 +2,7 @@
 :toc: left
 :sectnums:
 
-This document defines the architectural design, specifications, and boundary contracts for the Plugin Graph Intermediate Representation (IR) in `hariti`.
+This document defines the architectural design, specifications, and boundary contracts for the public Plugin Graph Intermediate Representation (IR) in `hariti`, which is exposed as the public Go package `github.com/kamichidu/go-hariti/graph`.
 
 == Purpose (Why We Need Graph IR)
 
@@ -43,7 +43,7 @@ The Graph IR represents ONLY the fully resolved bundle configuration (the **Reso
 Throughout the codebase and this documentation, the following terms are strictly defined as follows:
 
 Plugin Graph IR::
-  The abstract directed graph structure representing resolved, flat plugin configurations processed by backend components of `hariti`.
+  The public, abstract directed graph structure representing resolved, flat plugin configurations processed by backend components of `hariti`. This is exposed as the public API package `github.com/kamichidu/go-hariti/graph`.
 Bundle::
   A node in the Plugin Graph representing a single Vim plugin.
 Source::

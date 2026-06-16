@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/kamichidu/go-hariti/internal/graph"
+	"github.com/kamichidu/go-hariti/graph"
 )
 
 type VCS interface {

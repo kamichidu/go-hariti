@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kamichidu/go-hariti/internal/graph"
+	"github.com/kamichidu/go-hariti/graph"
 )
 
 type Git struct{}

@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/kamichidu/go-hariti"
-	"github.com/kamichidu/go-hariti/internal/graph"
+	"github.com/kamichidu/go-hariti/graph"
 	_ "github.com/kamichidu/go-hariti/vcs/git"
 )
 

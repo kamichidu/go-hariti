@@ -3,7 +3,7 @@ package graph_test
 import (
 	"testing"
 
-	"github.com/kamichidu/go-hariti/internal/graph"
+	"github.com/kamichidu/go-hariti/graph"
 )
 
 func TestNormalize(t *testing.T) {

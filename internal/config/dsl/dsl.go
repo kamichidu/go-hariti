@@ -3,9 +3,9 @@ package dsl
 import (
 	"io"
 
+	"github.com/kamichidu/go-hariti/graph"
 	"github.com/kamichidu/go-hariti/internal/config/dsl/ast"
 	"github.com/kamichidu/go-hariti/internal/config/dsl/parser"
-	"github.com/kamichidu/go-hariti/internal/graph"
 )
 
 func Parse(filename string, src []byte) (*ast.File, error) {

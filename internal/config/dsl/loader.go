@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/kamichidu/go-hariti/graph"
 	"github.com/kamichidu/go-hariti/internal/config/dsl/ast"
-	"github.com/kamichidu/go-hariti/internal/graph"
 )
 
 // Loader handles recursive parsing of .hariti files with relative path resolution and circular dependency detection.

@@ -5,7 +5,7 @@ import (
 	"net/url"
 
 	"github.com/kamichidu/go-hariti"
-	"github.com/kamichidu/go-hariti/internal/graph"
+	"github.com/kamichidu/go-hariti/graph"
 	"github.com/kamichidu/go-hariti/internal/vcs"
 )
 

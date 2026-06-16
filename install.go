@@ -3,7 +3,7 @@ package hariti
 import (
 	"context"
 
-	"github.com/kamichidu/go-hariti/internal/graph"
+	"github.com/kamichidu/go-hariti/graph"
 )
 
 type InstallOptions struct {

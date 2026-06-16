@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kamichidu/go-hariti/graph"
 	"github.com/kamichidu/go-hariti/internal/config/dsl"
 	"github.com/kamichidu/go-hariti/internal/config/dsl/ast"
-	"github.com/kamichidu/go-hariti/internal/graph"
 )
 
 func TestParse_Use(t *testing.T) {
