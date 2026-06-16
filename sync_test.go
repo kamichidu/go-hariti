@@ -3,6 +3,7 @@ package hariti_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/url"
 	"os"
@@ -21,7 +22,11 @@ func runGitCmdInDir(t *testing.T, dir string, args ...string) string {
 	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("git %v failed in %s: %v\nOutput: %s", args, dir, err, string(out))
+		if t != nil {
+			t.Fatalf("git %v failed in %s: %v\nOutput: %s", args, dir, err, string(out))
+		} else {
+			panic(fmt.Sprintf("git %v failed in %s: %v\nOutput: %s", args, dir, err, string(out)))
+		}
 	}
 	return strings.TrimSpace(string(out))
 }
@@ -307,5 +312,297 @@ func TestHariti_Sync_LocalSourceMissingError(t *testing.T) {
 	_, err := har.Sync(ctx, g, hariti.SyncOptions{Update: false})
 	if err == nil {
 		t.Error("expected sync to fail for missing local source path, but got nil")
+	}
+}
+
+func TestHariti_Sync_UpstreamResetAdvance(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	xdgHome := filepath.Join(tmpDir, "xdg_home")
+	_ = os.Setenv("XDG_DATA_HOME", xdgHome)
+	defer func() {
+		_ = os.Unsetenv("XDG_DATA_HOME")
+	}()
+
+	// 1. Setup mock Git remote repo
+	remoteRepoDir := filepath.Join(tmpDir, "remote_repo")
+	if err := os.MkdirAll(remoteRepoDir, 0755); err != nil {
+		t.Fatalf("failed to create mock remote dir: %v", err)
+	}
+
+	_ = runGitCmdInDir(nil, remoteRepoDir, "init", "--initial-branch=main")
+	_ = runGitCmdInDir(nil, remoteRepoDir, "config", "user.email", "test@hariti.io")
+	_ = runGitCmdInDir(nil, remoteRepoDir, "config", "user.name", "Test Hariti")
+
+	// Create and commit a tracked file
+	trackedFile := filepath.Join(remoteRepoDir, "tracked_file.txt")
+	if err := os.WriteFile(trackedFile, []byte("original content"), 0644); err != nil {
+		t.Fatalf("failed to write tracked file: %v", err)
+	}
+	_ = runGitCmdInDir(nil, remoteRepoDir, "add", "tracked_file.txt")
+	_ = runGitCmdInDir(nil, remoteRepoDir, "commit", "-m", "initial commit with tracked file")
+	rev1 := runGitCmdInDir(nil, remoteRepoDir, "rev-parse", "HEAD")
+
+	remoteURL, err := url.Parse("file://" + filepath.ToSlash(remoteRepoDir))
+	if err != nil {
+		t.Fatalf("failed to parse remote URL: %v", err)
+	}
+
+	g := &graph.Graph{
+		Bundles: []graph.Bundle{
+			{
+				ID: "my-tracked-plugin",
+				Source: graph.Source{
+					Type: graph.SourceTypeRemote,
+					URL:  remoteURL,
+					Path: filepath.Join(xdgHome, "hariti", "repos", url.QueryEscape("my-tracked-plugin")),
+				},
+			},
+		},
+	}
+
+	cfg := &hariti.HaritiConfig{
+		Paths: hariti.Paths{
+			ConfigFile: filepath.Join(tmpDir, "hariti_home", "bundles.hariti"),
+			ConfigDir:  filepath.Join(tmpDir, "hariti_home"),
+			DataDir:    filepath.Join(xdgHome, "hariti"),
+		},
+		Writer:    io.Discard,
+		ErrWriter: io.Discard,
+	}
+	har := hariti.NewHariti(cfg)
+
+	ctx := context.Background()
+	ctx = hariti.WithWriter(ctx, io.Discard)
+	ctx = hariti.WithErrWriter(ctx, io.Discard)
+	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(io.Discard))
+
+	// Step 1: Clone initially
+	facts1, err := har.Sync(ctx, g, hariti.SyncOptions{Update: false})
+	if err != nil {
+		t.Fatalf("initial Sync failed: %v", err)
+	}
+	if facts1[0].Revision != rev1 {
+		t.Errorf("expected revision %s, got %s", rev1, facts1[0].Revision)
+	}
+
+	// Step 2: Make local uncommitted modifications to the tracked file in the cache repository
+	cacheRepoPath := filepath.Join(xdgHome, "hariti", "repos", url.QueryEscape("my-tracked-plugin"))
+	dirtyFile := filepath.Join(cacheRepoPath, "tracked_file.txt")
+	if err := os.WriteFile(dirtyFile, []byte("local modifications"), 0644); err != nil {
+		t.Fatalf("failed to write dirty file: %v", err)
+	}
+
+	// Step 3: Advance remote repository by committing a new changes
+	_ = runGitCmdInDir(nil, remoteRepoDir, "commit", "--allow-empty", "-m", "remote advance commit")
+	rev2 := runGitCmdInDir(nil, remoteRepoDir, "rev-parse", "HEAD")
+
+	// Step 4: Run Sync again. It must fetch, wipe local changes (hard reset), and advance HEAD to rev2!
+	facts2, err := har.Sync(ctx, g, hariti.SyncOptions{Update: false})
+	if err != nil {
+		t.Fatalf("second Sync failed: %v", err)
+	}
+
+	if facts2[0].Revision != rev2 {
+		t.Errorf("expected revision to advance to %s, got %s", rev2, facts2[0].Revision)
+	}
+
+	// Verify uncommitted modifications were cleanly wiped out (tracked file content is restored/reset)
+	contentBytes, err := os.ReadFile(dirtyFile)
+	if err != nil {
+		t.Fatalf("failed to read tracked file: %v", err)
+	}
+	if string(contentBytes) == "local modifications" {
+		t.Error("expected uncommitted local modifications to be wiped out by hard reset, but tracked file still has dirty changes")
+	}
+}
+
+func TestHariti_Sync_NoUpstreamError(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	xdgHome := filepath.Join(tmpDir, "xdg_home")
+	_ = os.Setenv("XDG_DATA_HOME", xdgHome)
+	defer func() {
+		_ = os.Unsetenv("XDG_DATA_HOME")
+	}()
+
+	// 1. Create a local git repository inside the cache folder without tracked upstream branch
+	cacheRepoPath := filepath.Join(xdgHome, "hariti", "repos", url.QueryEscape("my-untracked-plugin"))
+	if err := os.MkdirAll(cacheRepoPath, 0755); err != nil {
+		t.Fatalf("failed to create cache dir: %v", err)
+	}
+	_ = runGitCmdInDir(nil, cacheRepoPath, "init")
+	_ = runGitCmdInDir(nil, cacheRepoPath, "config", "user.email", "test@hariti.io")
+	_ = runGitCmdInDir(nil, cacheRepoPath, "config", "user.name", "Test Hariti")
+	_ = runGitCmdInDir(nil, cacheRepoPath, "commit", "--allow-empty", "-m", "local only commit")
+
+	// 2. Set up sync graph representing a remote sync
+	remoteURL, _ := url.Parse("file://" + filepath.ToSlash(filepath.Join(tmpDir, "some_fake_remote")))
+	g := &graph.Graph{
+		Bundles: []graph.Bundle{
+			{
+				ID: "my-untracked-plugin",
+				Source: graph.Source{
+					Type: graph.SourceTypeRemote,
+					URL:  remoteURL,
+					Path: cacheRepoPath,
+				},
+			},
+		},
+	}
+
+	cfg := &hariti.HaritiConfig{
+		Paths: hariti.Paths{
+			ConfigFile: filepath.Join(tmpDir, "hariti_home", "bundles.hariti"),
+			ConfigDir:  filepath.Join(tmpDir, "hariti_home"),
+			DataDir:    filepath.Join(xdgHome, "hariti"),
+		},
+		Writer:    io.Discard,
+		ErrWriter: io.Discard,
+	}
+	har := hariti.NewHariti(cfg)
+
+	ctx := context.Background()
+	ctx = hariti.WithWriter(ctx, io.Discard)
+	ctx = hariti.WithErrWriter(ctx, io.Discard)
+	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(io.Discard))
+
+	// Step 3: Run Sync. Since cache repo exists but does NOT have upstream tracked, it must fail with an explicit error!
+	_, err := har.Sync(ctx, g, hariti.SyncOptions{Update: false})
+	if err == nil {
+		t.Error("expected Sync to fail due to missing tracked upstream ref, but got nil")
+	}
+}
+
+func TestHariti_Sync_SubmoduleUpdate(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	xdgHome := filepath.Join(tmpDir, "xdg_home")
+	_ = os.Setenv("XDG_DATA_HOME", xdgHome)
+	_ = os.Setenv("GIT_ALLOW_PROTOCOL", "file:git:http:https:ssh")
+	defer func() {
+		_ = os.Unsetenv("XDG_DATA_HOME")
+		_ = os.Unsetenv("GIT_ALLOW_PROTOCOL")
+	}()
+
+	// 1. Setup mock Git remote submodule repo
+	subRepoDir := filepath.Join(tmpDir, "sub_repo")
+	if err := os.MkdirAll(subRepoDir, 0755); err != nil {
+		t.Fatalf("failed to create submodule dir: %v", err)
+	}
+	_ = runGitCmdInDir(nil, subRepoDir, "init", "--initial-branch=main")
+	_ = runGitCmdInDir(nil, subRepoDir, "config", "user.email", "test@hariti.io")
+	_ = runGitCmdInDir(nil, subRepoDir, "config", "user.name", "Test Hariti")
+	_ = runGitCmdInDir(nil, subRepoDir, "config", "protocol.file.allow", "always")
+	subFile := filepath.Join(subRepoDir, "sub_file.txt")
+	_ = os.WriteFile(subFile, []byte("submodule commit 1"), 0644)
+	_ = runGitCmdInDir(nil, subRepoDir, "add", "sub_file.txt")
+	_ = runGitCmdInDir(nil, subRepoDir, "commit", "-m", "initial sub commit")
+
+	// 2. Setup mock Git remote main repo
+	mainRepoDir := filepath.Join(tmpDir, "main_repo")
+	if err := os.MkdirAll(mainRepoDir, 0755); err != nil {
+		t.Fatalf("failed to create main dir: %v", err)
+	}
+	_ = runGitCmdInDir(nil, mainRepoDir, "init", "--initial-branch=main")
+	_ = runGitCmdInDir(nil, mainRepoDir, "config", "user.email", "test@hariti.io")
+	_ = runGitCmdInDir(nil, mainRepoDir, "config", "user.name", "Test Hariti")
+	_ = runGitCmdInDir(nil, mainRepoDir, "config", "protocol.file.allow", "always")
+	_ = os.WriteFile(filepath.Join(mainRepoDir, "main_file.txt"), []byte("main content"), 0644)
+	_ = runGitCmdInDir(nil, mainRepoDir, "add", "main_file.txt")
+	_ = runGitCmdInDir(nil, mainRepoDir, "commit", "-m", "initial main commit")
+
+	// Add submodule to the remote main repository
+	subURLStr := "file://" + filepath.ToSlash(subRepoDir)
+	_ = runGitCmdInDir(nil, mainRepoDir, "submodule", "add", subURLStr, "my_submodule")
+	_ = runGitCmdInDir(nil, mainRepoDir, "commit", "-m", "add submodule")
+	mainRev1 := runGitCmdInDir(nil, mainRepoDir, "rev-parse", "HEAD")
+
+	mainURL, err := url.Parse("file://" + filepath.ToSlash(mainRepoDir))
+	if err != nil {
+		t.Fatalf("failed to parse main URL: %v", err)
+	}
+
+	g := &graph.Graph{
+		Bundles: []graph.Bundle{
+			{
+				ID: "my-submodule-plugin",
+				Source: graph.Source{
+					Type: graph.SourceTypeRemote,
+					URL:  mainURL,
+					Path: filepath.Join(xdgHome, "hariti", "repos", url.QueryEscape("my-submodule-plugin")),
+				},
+			},
+		},
+	}
+
+	cfg := &hariti.HaritiConfig{
+		Paths: hariti.Paths{
+			ConfigFile: filepath.Join(tmpDir, "hariti_home", "bundles.hariti"),
+			ConfigDir:  filepath.Join(tmpDir, "hariti_home"),
+			DataDir:    filepath.Join(xdgHome, "hariti"),
+		},
+		Writer:    io.Discard,
+		ErrWriter: io.Discard,
+	}
+	har := hariti.NewHariti(cfg)
+
+	ctx := context.Background()
+	ctx = hariti.WithWriter(ctx, io.Discard)
+	ctx = hariti.WithErrWriter(ctx, io.Discard)
+	ctx = hariti.WithLogger(ctx, hariti.NewStdLogger(io.Discard))
+
+	// Step 1: Sync first to clone main and recursively clone submodule
+	facts1, err := har.Sync(ctx, g, hariti.SyncOptions{Update: false})
+	if err != nil {
+		t.Fatalf("first Sync failed: %v", err)
+	}
+	if facts1[0].Revision != mainRev1 {
+		t.Errorf("expected revision %s, got %s", mainRev1, facts1[0].Revision)
+	}
+
+	// Verify submodule file was recursively cloned initially
+	clonedCachePath := filepath.Join(xdgHome, "hariti", "repos", url.QueryEscape("my-submodule-plugin"))
+	submoduleFilePath := filepath.Join(clonedCachePath, "my_submodule", "sub_file.txt")
+	subBytes1, err := os.ReadFile(submoduleFilePath)
+	if err != nil {
+		t.Fatalf("failed to read cloned submodule file: %v", err)
+	}
+	if string(subBytes1) != "submodule commit 1" {
+		t.Errorf("expected submodule file content 'submodule commit 1', got '%s'", string(subBytes1))
+	}
+
+	// Step 2: Advance submodule remote repository
+	_ = os.WriteFile(subFile, []byte("submodule commit 2"), 0644)
+	_ = runGitCmdInDir(nil, subRepoDir, "add", "sub_file.txt")
+	_ = runGitCmdInDir(nil, subRepoDir, "commit", "-m", "advance submodule content")
+	subRev2 := runGitCmdInDir(nil, subRepoDir, "rev-parse", "HEAD")
+
+	// Step 3: Commit the advanced submodule pointer in the main remote repository
+	_ = runGitCmdInDir(nil, mainRepoDir, "submodule", "update", "--remote", "my_submodule")
+	_ = runGitCmdInDir(nil, mainRepoDir, "commit", "-am", "advance submodule pointer in main")
+	mainRev2 := runGitCmdInDir(nil, mainRepoDir, "rev-parse", "HEAD")
+
+	// Step 4: Run Sync again. It must fetch, hard reset, find `.gitmodules` exists, and run submodule update!
+	facts2, err := har.Sync(ctx, g, hariti.SyncOptions{Update: false})
+	if err != nil {
+		t.Fatalf("second Sync failed: %v", err)
+	}
+	if facts2[0].Revision != mainRev2 {
+		t.Errorf("expected revision to advance to %s, got %s", mainRev2, facts2[0].Revision)
+	}
+
+	// Verify that the submodule worktree inside our cache directory successfully updated and points to subRev2!
+	subBytes2, err := os.ReadFile(submoduleFilePath)
+	if err != nil {
+		t.Fatalf("failed to read updated submodule file: %v", err)
+	}
+	if string(subBytes2) != "submodule commit 2" {
+		t.Errorf("expected submodule file content to update to 'submodule commit 2', got '%s'", string(subBytes2))
+	}
+
+	subHeadRev := runGitCmdInDir(nil, filepath.Join(clonedCachePath, "my_submodule"), "rev-parse", "HEAD")
+	if subHeadRev != subRev2 {
+		t.Errorf("expected submodule HEAD revision to point to %s, got %s", subRev2, subHeadRev)
 	}
 }

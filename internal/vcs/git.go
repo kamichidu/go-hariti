@@ -16,33 +16,7 @@ import (
 
 type Git struct{}
 
-func (g *Git) Sync(ctx context.Context, bundle graph.Bundle, out, errOut io.Writer, logger Logger) error {
-	localPath := bundle.Source.Path
-	urlStr := ""
-	if bundle.Source.URL != nil {
-		urlStr = bundle.Source.URL.String()
-	}
-
-	var cmd *exec.Cmd
-	if info, err := os.Stat(localPath); err != nil {
-		if logger != nil {
-			logger.Infof("Cloning %s to %s\n", urlStr, localPath)
-		}
-		cmd = exec.Command("git", "clone", "--recursive", urlStr, localPath)
-		cmd.Stdout = out
-		cmd.Stderr = errOut
-	} else if info.IsDir() {
-		if logger != nil {
-			logger.Infof("Fetching in %s", localPath)
-		}
-		cmd = exec.Command("git", "fetch", "--all")
-		cmd.Dir = localPath
-		cmd.Stdout = out
-		cmd.Stderr = errOut
-	} else {
-		return nil
-	}
-
+func runCmd(ctx context.Context, cmd *exec.Cmd) error {
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- cmd.Run()
@@ -57,6 +31,83 @@ func (g *Git) Sync(ctx context.Context, bundle graph.Bundle, out, errOut io.Writ
 	case err := <-errCh:
 		return err
 	}
+}
+
+func (g *Git) Sync(ctx context.Context, bundle graph.Bundle, out, errOut io.Writer, logger Logger) error {
+	localPath := bundle.Source.Path
+	urlStr := ""
+	if bundle.Source.URL != nil {
+		urlStr = bundle.Source.URL.String()
+	}
+
+	if info, err := os.Stat(localPath); err != nil {
+		if logger != nil {
+			logger.Infof("Cloning %s to %s\n", urlStr, localPath)
+		}
+		cmd := exec.Command("git", "clone", "--recursive", urlStr, localPath)
+		cmd.Stdout = out
+		cmd.Stderr = errOut
+		if err := runCmd(ctx, cmd); err != nil {
+			return err
+		}
+	} else if info.IsDir() {
+		if logger != nil {
+			logger.Infof("Fetching and hard resetting in %s", localPath)
+		}
+
+		// 1. Fetch all
+		fetchCmd := exec.Command("git", "fetch", "--all", "--prune")
+		fetchCmd.Dir = localPath
+		fetchCmd.Stdout = out
+		fetchCmd.Stderr = errOut
+		if err := runCmd(ctx, fetchCmd); err != nil {
+			return fmt.Errorf("git fetch failed: %w", err)
+		}
+
+		// 2. Resolve tracked upstream ref
+		revParseCmd := exec.Command("git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
+		revParseCmd.Dir = localPath
+		var upstreamStdout bytes.Buffer
+		revParseCmd.Stdout = &upstreamStdout
+		revParseCmd.Stderr = errOut
+		if err := runCmd(ctx, revParseCmd); err != nil {
+			return fmt.Errorf("failed to resolve tracked upstream ref: %w", err)
+		}
+		upstream := strings.TrimSpace(upstreamStdout.String())
+		if upstream == "" {
+			return fmt.Errorf("no tracked upstream ref resolved for branch in %s", localPath)
+		}
+
+		// 3. Hard reset to resolved upstream ref
+		resetCmd := exec.Command("git", "reset", "--hard", upstream)
+		resetCmd.Dir = localPath
+		resetCmd.Stdout = out
+		resetCmd.Stderr = errOut
+		if err := runCmd(ctx, resetCmd); err != nil {
+			return fmt.Errorf("git reset to %s failed: %w", upstream, err)
+		}
+
+		// 4. Update submodules conditionally if .gitmodules exists
+		gitmodules := filepath.Join(localPath, ".gitmodules")
+		if _, err := os.Stat(gitmodules); err == nil {
+			if logger != nil {
+				logger.Infof("Updating submodules in %s", localPath)
+			}
+			submoduleCmd := exec.Command("git", "submodule", "update", "--init", "--recursive")
+			submoduleCmd.Dir = localPath
+			submoduleCmd.Stdout = out
+			submoduleCmd.Stderr = errOut
+			if err := runCmd(ctx, submoduleCmd); err != nil {
+				return fmt.Errorf("git submodule update failed: %w", err)
+			}
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+	} else {
+		return nil
+	}
+
+	return nil
 }
 
 func (g *Git) CanHandle(ctx context.Context, urlStr string) bool {
@@ -127,7 +178,7 @@ func (g *Git) Archive(ctx context.Context, bundle graph.Bundle, revision string,
 	tarReader := tar.NewReader(stdoutPipe)
 	for {
 		header, err := tarReader.Next()
-		if err == io.EOF {
+		if io.EOF == err {
 			break
 		}
 		if err != nil {

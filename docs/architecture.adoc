@@ -57,7 +57,7 @@ All Version Control System (VCS) operations must be mediated through an abstract
 ==== VCS Interface Responsibilities
 The `VCS` interface defines exactly four operations:
 * `CanHandle(ctx, url)`:: Verifies if this VCS adapter can handle the given URL.
-* `Sync(ctx, bundle)`:: Synchronizes the repository cache inside the local directory (clones if missing, fetches/updates if present).
+* `Sync(ctx, bundle)`:: Synchronizes the repository cache inside the local directory. If missing, it performs a recursive clone. If already cloned, it fetches all updates, performs a hard reset onto the configured tracked upstream branch (`@{upstream}`) to discard any local modifications (since the Repository Store acts strictly as an internal read-only cache), and updates submodules only if the repository contains a `.gitmodules` file. This keeps submodule worktrees consistent after resetting while avoiding unnecessary Git commands for repositories without submodules.
 * `HeadRevision(ctx, bundle)`:: Observes and returns the post-synchronization HEAD Commit Revision.
 * `Archive(ctx, bundle, revision, destDir)`:: Exports the repository files at the locked revision to the immutable generation folder layout.
 
