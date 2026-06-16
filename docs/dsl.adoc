@@ -301,7 +301,7 @@ The JSON serialization of the Resolved Graph (e.g., printed by the `dump-graph` 
 To prevent responsibility leaks and preserve long-term maintainability, the following boundary constraints are strictly enforced:
 
 * **Syntax-Only Parser**: The `dsl` parser's single responsibility is mapping DSL text into a `dsl.ast` representation (`Parser responsibility = Syntax -> AST`).
-* **Zero Semantic Dependencies**: The parser package and its generated structures must never import `internal/graph`. The parser is entirely agnostic of core execution meanings.
+* **Zero Semantic Dependencies**: The parser package and its generated structures must never import the public `graph` package. The parser is entirely agnostic of core execution meanings.
 * **Separation of Concerns**: The AST represents "How it is declared" (syntax), whereas the Graph IR represents "What it means" (semantics).
 * **Graph-Level Safeguards**: Graph semantic normalization and validation are the responsibility of the Graph package, and are triggered only *after* transforming the AST into a Graph representation.
 * **Include Handling**: Include file expansion, relative path resolution, and circular dependency checks are handled entirely within the DSL frontend layer. The Graph IR does not represent `include` directives.
