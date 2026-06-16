@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"github.com/kamichidu/go-hariti"
 )
 
 //go:embed assets/hariti.txt
@@ -78,7 +76,6 @@ func Run(ctx context.Context, args []string) int {
 	}
 
 	logger := NewCLILogger(verbose)
-	ctx = hariti.WithLogger(ctx, logger)
 
 	remaining := fs.Args()
 	if len(remaining) == 0 {

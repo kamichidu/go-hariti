@@ -41,6 +41,8 @@ Examples:
 
 Short and long forms must bind to the same flag variable.
 
+The `-v, --verbose` flag has no behavior other than enabling `debug` level logging filtration. By default, only logs of `info` level and above are shown. Passing `-v` or `--verbose` activates the `debug` severity filter in `colog`.
+
 In addition, the following global directory flags are supported:
 [source,text]
 ----

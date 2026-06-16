@@ -1,24 +1,18 @@
 package cli
 
 import (
-	"io"
 	"os"
 
 	"github.com/kamichidu/go-hariti"
+	"github.com/kamichidu/go-hariti/internal/logger"
 )
 
-type CLILogger struct {
-	hariti.Logger
-	verbose bool
-}
-
-func NewCLILogger(verbose bool) *CLILogger {
-	writer := io.Discard
+func NewCLILogger(verbose bool) hariti.Logger {
+	level := hariti.LevelInfo
 	if verbose {
-		writer = os.Stdout
+		level = hariti.LevelDebug
 	}
-	return &CLILogger{
-		Logger:  hariti.NewStdLogger(writer),
-		verbose: verbose,
-	}
+	return logger.NewLogger(os.Stderr, logger.LoggerOptions{
+		Level: level,
+	})
 }

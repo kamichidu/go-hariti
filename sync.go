@@ -13,7 +13,7 @@ type SyncOptions struct {
 }
 
 func (h *Hariti) Sync(ctx context.Context, g *graph.Graph, opts SyncOptions) ([]RepositoryFact, error) {
-	h.Logger.Infof("Starting repository synchronization...")
+	h.logger.Infof("Starting repository synchronization...")
 	facts := make([]RepositoryFact, 0, len(g.Bundles))
 
 	for _, bundle := range g.Bundles {
@@ -57,7 +57,7 @@ func (h *Hariti) Sync(ctx context.Context, g *graph.Graph, opts SyncOptions) ([]
 			}
 
 			// Clone / Fetch/Pull
-			vcsCtx := vcs.WithLogger(ctx, h.Logger)
+			vcsCtx := vcs.WithLogger(ctx, h.logger)
 			err = v.Sync(vcsCtx, bundle)
 			if err != nil {
 				return nil, fmt.Errorf("failed to sync bundle %s: %w", bundle.ID, err)

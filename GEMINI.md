@@ -271,8 +271,9 @@ If a statement can be trivially derived from source code, it probably belongs in
 |   |   |-- app.go
 |   |   |-- logger.go
 |   |   `-- commands/       # Subcommand implementation files
-|   `-- config/
-|       `-- dsl/            # Normalized DSL parser, AST, and Loader
+|   |-- config/
+|   |   `-- dsl/            # Normalized DSL parser, AST, and Loader
+|   `-- logger/             # Concrete logger implementation using colog
 |-- vcs/                    # Public VCS interface and implementations
 |   |-- git/                # Concrete Git implementation
 |   |-- context.go          # VCS context helpers and output routing
@@ -377,3 +378,51 @@ Hariti strictly separates Configuration files from Persistent Data directories i
 ### Implementation Isolation:
 - `internal/cli` is solely responsible for parsing command line flags, reading environment variables, resolving XDG default paths, and constructing the final resolved `Paths` struct.
 - The root `hariti` package and all other sub-packages must never read environment variables or resolve XDG configurations directly; they must strictly operate on the resolved `Paths` passed from the presentation layer.
+
+---
+
+## 12. Logging and Configuration Policy
+
+Hariti centralizes logging and log level configurations strictly around log severity levels rather than raw binary flags.
+
+### Key Rules:
+1. **Unexported Logger in Hariti**: The `Hariti` struct unexports its `logger` field. The only explicit injection point for the root logger is `HaritiConfig.Logger` using the `Logger` interface defined in the root package.
+2. **Interface and LogLevel in Root Package**: The root package `hariti` defines only the public `Logger` interface and standard `LogLevel` constants (`LevelDebug`, `LevelInfo`, `LevelWarn`, `LevelError`, `LevelFatal`). No implementation details or external library types are exposed here.
+3. **Strict Colog Import Isolation**: The `github.com/comail/colog` library is imported and used **strictly** within the `github.com/kamichidu/go-hariti/internal/logger` package. All other packages in the repository are completely decoupled from `colog` and configure logging via standard `hariti.LogLevel` constants.
+4. **Concrete Logger Instantiations**: Concrete logger instantiations are strictly isolated inside the `github.com/kamichidu/go-hariti/internal/logger` package via the single `NewLogger(w, opts)` factory API receiving configuration options through `LoggerOptions`.
+5. **No Root Context-Logging Wrappers**: Root-level context logging wrappers (like `WithLogger` or `LoggerFromContextKey`) are deleted. Direct VCS package boundaries use `vcs.WithLogger(ctx, h.logger)` directly, without any wrapping or re-implementations in the root package.
+6. **Abolition of Verbose Configuration Flags**: The configuration field `HaritiConfig.Verbose` is completely abolished.
+7. **Verbose CLI Flag as Debug Activation**: The `-v` or `--verbose` command-line flags only control the severity filter of the logger.
+8. **Colog Centralized Filtering**: Output filtering is delegated to `github.com/comail/colog` inside `internal/logger`. Standard operations filter out `debug` logs, setting the default minimum log level to `info`.
+9. **No Conditional Log Branches**: Core orchestration code must not use conditional branches (such as checking if verbose is enabled) to make logging calls. It must log the events directly (e.g. `logger.Debug(...)`), allowing the logger implementation and `colog` to determine severity-based visibility.
+
+### LogLevel Ownership
+The `hariti.LogLevel` type and constants are strictly an abstract, implementation-agnostic contract owned by the root package. They serve only to:
+* Enforce common level signatures on the `Logger` interface.
+* Pass log level selections explicitly from CLI presentations to custom logger initializations.
+* Represent logger levels in config structures without leaky implementation details.
+Internal concrete libraries (like `colog` or `stdLogger` adapter structs) must remain hidden inside `internal/logger` and never leak into public API signatures.
+
+### Logging Responsibility
+A logger is strictly an observability component. To enforce high decoupling, strict separation of concerns, and clear control flow, a logger must never:
+* Terminate the process (such as calling `os.Exit(1)` inside logging logic).
+* Trigger a program panic (such as calling `panic` inside logging logic).
+* Alter the application's control flow in any way.
+Program lifecycle and termination decisions belong exclusively to the calling layers (such as the CLI presentation, application layer, or main entrypoint) rather than the logging implementation.
+
+---
+
+## 13. Dependency Direction & Import Boundary Policy
+
+To prevent architectural decay, keep compilation fast, and simplify human reviews, Hariti strictly enforces package import boundaries.
+
+### Dependency Direction (Architecture Rule)
+Dependencies must always flow one-way, from outer layers (presentations, CLI) to inner layers (core domain models).
+- **Core Public Packages** (such as `graph`, `vcs`, or root package `hariti`) must remain completely presentation-agnostic.
+- **FORBIDDEN**: Core packages must never import `internal/cli`, `internal/cli/commands`, or other presentation-layer structures.
+- **FORBIDDEN**: Non-logging packages (like `graph`, `vcs`, or core packages) must never import `github.com/comail/colog`. Only the isolated `internal/logger` package is allowed to import `colog`.
+
+### Automated Linter Enforcement (depguard)
+To prevent accidental violations or AI-agent deviations, these import boundaries are statically verified via `depguard` inside `.golangci.yml`.
+- **Linter Rule**: Breaking any of these boundaries triggers a build/CI compilation failure in the `depguard` pass.
+- **Why**: Keeping boundaries mechanically enforced ensures clean, decoupled, and maintainable package boundaries that do not rely solely on human review vigilance.

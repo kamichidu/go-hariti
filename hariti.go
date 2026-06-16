@@ -21,20 +21,19 @@ type HaritiConfig struct {
 	Paths     Paths
 	Writer    io.Writer
 	ErrWriter io.Writer
-	Verbose   bool
 	Logger    Logger
 }
 
 type Hariti struct {
 	config *HaritiConfig
 
-	Logger Logger
+	logger Logger
 }
 
 func NewHariti(config *HaritiConfig) *Hariti {
 	logger := config.Logger
 	if logger == nil {
-		logger = NewStdLogger(io.Discard)
+		logger = nopLogger{}
 	}
 	return &Hariti{config, logger}
 }

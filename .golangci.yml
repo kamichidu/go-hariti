@@ -4,8 +4,59 @@ run:
   timeout: 5m
 
 linters:
-  disable-all: true
   enable:
     - errcheck
     - staticcheck
     - govet
+    - depguard
+  settings:
+    depguard:
+      rules:
+        Main:
+          list-mode: lax
+          files:
+            - "$all"
+          deny:
+            - pkg: "io/ioutil"
+              desc: "ioutil is deprecated; use 'io' or 'os' packages instead."
+
+        graph_check:
+          list-mode: lax
+          files:
+            - "**/graph/**/*.go"
+          deny:
+            - pkg: "github.com/kamichidu/go-hariti/internal/cli"
+              desc: "Graph package must not import presentation layer"
+            - pkg: "github.com/kamichidu/go-hariti/internal/logger"
+              desc: "Graph package must not import concrete logger"
+            - pkg: "github.com/kamichidu/go-hariti/internal/config"
+              desc: "Graph package must not import internal config"
+
+        vcs_check:
+          list-mode: lax
+          files:
+            - "**/vcs/**/*.go"
+          deny:
+            - pkg: "github.com/kamichidu/go-hariti/internal/cli"
+              desc: "VCS package must not import presentation layer"
+            - pkg: "github.com/kamichidu/go-hariti/internal/logger"
+              desc: "VCS package must not import concrete logger"
+            - pkg: "github.com/kamichidu/go-hariti/internal/config"
+              desc: "VCS package must not import internal config"
+
+        root_check:
+          list-mode: lax
+          files:
+            - "*.go"
+          deny:
+            - pkg: "github.com/kamichidu/go-hariti/internal/cli"
+              desc: "Root package must not import presentation layer"
+
+        colog_check:
+          list-mode: lax
+          files:
+            - "$all"
+            - "!**/internal/logger/**"
+          deny:
+            - pkg: "github.com/comail/colog"
+              desc: "Only internal/logger is allowed to import colog"
