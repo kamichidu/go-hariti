@@ -181,6 +181,21 @@ Always establish clear boundaries before adding features. Do not compromise or b
 9. Implement `Generation`
 10. Implement `RuntimePath Projector`
 
+### End-to-End (E2E) Testing Policy
+
+The E2E test suite resides under the `e2e/` package and validates Hariti's final contract by observing how Vim loads the projected runtime paths.
+
+* **Observe First Normalization**:
+  E2E tests must never use hardcoded environment guesses (such as system paths or Homebrew directories) to assert correctness. Instead, they must dynamically inspect observed values (e.g., obtaining `$VIMRUNTIME` directly from the executed Vim process) and compute parent paths (mapping them to variables like `<VIMPARENT>`, `<VIMRUNTIME>`, `<HOME>`, `<TESTDIR>`) to produce completely deterministic and platform-independent snapshots.
+* **Snapshot Comparison & Maintenance**:
+  - Default test runs compare the normalized `&runtimepath` against a static snapshot file (`testdata/simple/expected/runtimepath.snap`).
+  - If a change in the template or Vim output structure occurs, the snapshot can be updated atomically by running:
+    ```sh
+    UPDATE_SNAPSHOT=1 go test -v ./e2e
+    ```
+* **Strict Prerequisite Checks**:
+  Tests must fail immediately if critical variables (such as temporary paths, user home directory, or the Vim runtime) are empty or cannot be resolved, preventing defensive conditional blocks inside normalizer helpers.
+
 ---
 
 ## 6. Repository Documentation & Metadata Placement Policy
@@ -265,6 +280,9 @@ If a statement can be trivially derived from source code, it probably belongs in
 |   |-- dsl.adoc            # DSL configuration syntax specifications
 |   |-- generation.adoc     # Generation design specifications
 |   `-- graph-ir.adoc       # Resolved Graph IR specifications
+|-- e2e/                    # End-to-End test suite and snapshot fixtures
+|   |-- testdata/           # Isolated E2E test fixtures
+|   `-- runtimepath_test.go # Vim runtimepath projection E2E tests
 |-- graph/                  # Public Graph IR definitions and validation
 |-- internal/
 |   |-- cli/                # CLI presentation layer
