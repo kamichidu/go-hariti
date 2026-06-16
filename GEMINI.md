@@ -271,18 +271,17 @@ If a statement can be trivially derived from source code, it probably belongs in
 |   |   |-- app.go
 |   |   |-- logger.go
 |   |   `-- commands/       # Subcommand implementation files
-|   |-- config/
-|   |   `-- dsl/            # Normalized DSL parser, AST, and Loader
-|   `-- vcs/                # Consolidated VCS Git Adapter
-|-- vcs/
-|   `-- git/                # Legacy VCS proxy adapter
+|   `-- config/
+|       `-- dsl/            # Normalized DSL parser, AST, and Loader
+|-- vcs/                    # Public VCS interface and implementations
+|   |-- git/                # Concrete Git implementation
+|   `-- vcs.go              # VCS common interface
 |-- bundle.go               # Bundle interface definition
 |-- context.go              # Context management
 |-- deploy.go               # Deploy usecase public API
 |-- hariti.go               # Core structures and configuration directories setup
 |-- install.go              # Install usecase public API
-|-- sync.go                 # Sync usecase public API
-`-- vcs.go                  # VCS common interface
+`-- sync.go                 # Sync usecase public API
 ```
 
 ---

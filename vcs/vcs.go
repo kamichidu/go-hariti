@@ -1,8 +1,9 @@
-package hariti
+package vcs
 
 import (
 	"context"
 	"net/url"
+	"sync"
 
 	"github.com/kamichidu/go-hariti/graph"
 )
@@ -14,13 +15,20 @@ type VCS interface {
 	Archive(c context.Context, bundle graph.Bundle, revision string, destDir string) error
 }
 
-var vcsList []VCS
+var (
+	vcsMu   sync.RWMutex
+	vcsList []VCS
+)
 
-func RegisterVCS(vcs VCS) {
+func Register(vcs VCS) {
+	vcsMu.Lock()
+	defer vcsMu.Unlock()
 	vcsList = append(vcsList, vcs)
 }
 
-func DetectVCS(u *url.URL) VCS {
+func Detect(u *url.URL) VCS {
+	vcsMu.RLock()
+	defer vcsMu.RUnlock()
 	for _, vcs := range vcsList {
 		if vcs.CanHandle(context.Background(), u) {
 			return vcs

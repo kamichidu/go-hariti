@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/kamichidu/go-hariti/graph"
+	"github.com/kamichidu/go-hariti/vcs"
 )
 
 type SyncOptions struct {
@@ -46,7 +47,7 @@ func (h *Hariti) Sync(ctx context.Context, g *graph.Graph, opts SyncOptions) ([]
 				}
 			}
 
-			vcs := DetectVCS(bundle.Source.URL)
+			vcs := vcs.Detect(bundle.Source.URL)
 			if vcs == nil {
 				return nil, fmt.Errorf("failed to detect VCS for bundle %s with URL %s", bundle.ID, bundle.Source.URL)
 			}

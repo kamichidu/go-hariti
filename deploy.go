@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/kamichidu/go-hariti/graph"
+	"github.com/kamichidu/go-hariti/vcs"
 )
 
 type DeployOptions struct {
@@ -127,7 +128,7 @@ func (h *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptions)
 				return "", fmt.Errorf("no revision found in lockfile for remote bundle %s", bundle.ID)
 			}
 
-			vcs := DetectVCS(bundle.Source.URL)
+			vcs := vcs.Detect(bundle.Source.URL)
 			if vcs == nil {
 				return "", fmt.Errorf("failed to detect VCS for remote bundle %s", bundle.ID)
 			}
