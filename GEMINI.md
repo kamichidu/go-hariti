@@ -265,8 +265,7 @@ If a statement can be trivially derived from source code, it probably belongs in
 |   |-- dsl.adoc            # DSL configuration syntax specifications
 |   |-- generation.adoc     # Generation design specifications
 |   `-- graph-ir.adoc       # Resolved Graph IR specifications
-|-- encoding/
-|   `-- hariti/             # Legacy DSL parser draft
+|-- graph/                  # Public Graph IR definitions and validation
 |-- internal/
 |   |-- cli/                # CLI presentation layer
 |   |   |-- app.go
@@ -274,7 +273,6 @@ If a statement can be trivially derived from source code, it probably belongs in
 |   |   `-- commands/       # Subcommand implementation files
 |   |-- config/
 |   |   `-- dsl/            # Normalized DSL parser, AST, and Loader
-|   |-- graph/              # Normalized Graph IR definitions
 |   `-- vcs/                # Consolidated VCS Git Adapter
 |-- vcs/
 |   `-- git/                # Legacy VCS proxy adapter
