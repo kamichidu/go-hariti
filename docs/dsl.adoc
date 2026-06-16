@@ -115,6 +115,36 @@ Key rules:
 * **Glob Expansion**: Supports wildcard pattern matching using `*` (and other glob syntax) to match and include multiple files recursively relative to the inclusion context. Glob expansion is executed entirely during the include processing phase inside the DSL frontend.
 * **Circular Detection**: The compiler/loader must perform circular dependency checks to prevent infinite compilation loops.
 
+=== Comments
+Allows adding documentation annotations inside `.hariti` configuration files. Comments are purely for human readers and are completely discarded at the parser level; they do not affect the compiled `AST`, `Graph IR`, lockfiles, or generations.
+
+Only the single-character hash prefix syntax (`#`) is supported. Multi-line comments (such as `/* ... */`) or C-style line comments (such as `//`) are explicitly unsupported.
+
+==== Standalone Comments
+Standalone comments can be placed on their own lines:
+[source,hariti]
+----
+# Define core utility plugins
+use Shougo/vimproc.vim
+----
+
+==== Inline Comments
+Comments can also be placed inline, following directives or options:
+[source,hariti]
+----
+use Shougo/vimproc.vim # required by many plugins
+  as vimproc           # define a short alias
+----
+
+==== Comment Characters inside String Literals
+A `#` character placed inside double-quoted (`"`) or single-quoted (`'`) string literals is treated as a literal character rather than the start of a comment:
+[source,hariti]
+----
+use my/plugin {
+  source "https://example.com/#fragment" # the #fragment is part of the URL string
+}
+----
+
 ---
 
 == Source Resolution

@@ -1126,12 +1126,37 @@ var g = &grammar{
 			},
 		},
 		{
-			name: "_",
+			name: "Comment",
 			pos:  position{line: 228, col: 1, offset: 5135},
+			expr: &seqExpr{
+				pos: position{line: 228, col: 11, offset: 5145},
+				exprs: []any{
+					&litMatcher{
+						pos:        position{line: 228, col: 11, offset: 5145},
+						val:        "#",
+						ignoreCase: false,
+						want:       "\"#\"",
+					},
+					&zeroOrMoreExpr{
+						pos: position{line: 228, col: 15, offset: 5149},
+						expr: &charClassMatcher{
+							pos:        position{line: 228, col: 15, offset: 5149},
+							val:        "[^\\r\\n]",
+							chars:      []rune{'\r', '\n'},
+							ignoreCase: false,
+							inverted:   true,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "_",
+			pos:  position{line: 230, col: 1, offset: 5159},
 			expr: &zeroOrMoreExpr{
-				pos: position{line: 228, col: 5, offset: 5139},
+				pos: position{line: 230, col: 5, offset: 5163},
 				expr: &charClassMatcher{
-					pos:        position{line: 228, col: 5, offset: 5139},
+					pos:        position{line: 230, col: 5, offset: 5163},
 					val:        "[ \\t]",
 					chars:      []rune{' ', '\t'},
 					ignoreCase: false,
@@ -1141,25 +1166,37 @@ var g = &grammar{
 		},
 		{
 			name: "__",
-			pos:  position{line: 230, col: 1, offset: 5147},
+			pos:  position{line: 232, col: 1, offset: 5171},
 			expr: &zeroOrMoreExpr{
-				pos: position{line: 230, col: 6, offset: 5152},
-				expr: &charClassMatcher{
-					pos:        position{line: 230, col: 6, offset: 5152},
-					val:        "[ \\t\\r\\n]",
-					chars:      []rune{' ', '\t', '\r', '\n'},
-					ignoreCase: false,
-					inverted:   false,
+				pos: position{line: 232, col: 6, offset: 5176},
+				expr: &choiceExpr{
+					pos: position{line: 232, col: 8, offset: 5178},
+					alternatives: []any{
+						&oneOrMoreExpr{
+							pos: position{line: 232, col: 8, offset: 5178},
+							expr: &charClassMatcher{
+								pos:        position{line: 232, col: 8, offset: 5178},
+								val:        "[ \\t\\r\\n]",
+								chars:      []rune{' ', '\t', '\r', '\n'},
+								ignoreCase: false,
+								inverted:   false,
+							},
+						},
+						&ruleRefExpr{
+							pos:  position{line: 232, col: 21, offset: 5191},
+							name: "Comment",
+						},
+					},
 				},
 			},
 		},
 		{
 			name: "EOF",
-			pos:  position{line: 232, col: 1, offset: 5164},
+			pos:  position{line: 234, col: 1, offset: 5203},
 			expr: &notExpr{
-				pos: position{line: 232, col: 7, offset: 5170},
+				pos: position{line: 234, col: 7, offset: 5209},
 				expr: &anyMatcher{
-					line: 232, col: 8, offset: 5171,
+					line: 234, col: 8, offset: 5210,
 				},
 			},
 		},

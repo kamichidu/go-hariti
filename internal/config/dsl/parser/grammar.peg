@@ -225,8 +225,10 @@ SingleQuotedString = "'" [^'\r\n]* "'" {
 	return string(c.text[1:len(c.text)-1]), nil
 }
 
+Comment = "#" [^\r\n]*
+
 _ = [ \t]*
 
-__ = [ \t\r\n]*
+__ = ( [ \t\r\n]+ / Comment )*
 
 EOF = !.

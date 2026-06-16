@@ -437,3 +437,116 @@ func TestParseGraph_DumpGraphResolvedJSON(t *testing.T) {
 		t.Errorf("expected marshaled JSON to exclude merges, got: %s", jsonStr)
 	}
 }
+
+func TestParse_Comments(t *testing.T) {
+	// 1. Standalone Comment
+	srcStandalone := `# comment
+
+use foo/bar`
+	fStandalone, err := dsl.Parse("", []byte(srcStandalone))
+	if err != nil {
+		t.Fatalf("Parse standalone comment error: %v", err)
+	}
+	expectedStandalone := &ast.File{
+		Bundles: []ast.BundleDecl{
+			{
+				Use: "foo/bar",
+			},
+		},
+	}
+	if !reflect.DeepEqual(fStandalone, expectedStandalone) {
+		t.Errorf("expected %+v, got %+v", expectedStandalone, fStandalone)
+	}
+
+	// 2. Inline Comment
+	srcInline := `use foo/bar # comment`
+	fInline, err := dsl.Parse("", []byte(srcInline))
+	if err != nil {
+		t.Fatalf("Parse inline comment error: %v", err)
+	}
+	expectedInline := &ast.File{
+		Bundles: []ast.BundleDecl{
+			{
+				Use: "foo/bar",
+			},
+		},
+	}
+	if !reflect.DeepEqual(fInline, expectedInline) {
+		t.Errorf("expected %+v, got %+v", expectedInline, fInline)
+	}
+
+	// 3. Multiple Comments
+	srcMultiple := `# a
+# b
+
+use foo/bar
+
+# c`
+	fMultiple, err := dsl.Parse("", []byte(srcMultiple))
+	if err != nil {
+		t.Fatalf("Parse multiple comments error: %v", err)
+	}
+	expectedMultiple := &ast.File{
+		Bundles: []ast.BundleDecl{
+			{
+				Use: "foo/bar",
+			},
+		},
+	}
+	if !reflect.DeepEqual(fMultiple, expectedMultiple) {
+		t.Errorf("expected %+v, got %+v", expectedMultiple, fMultiple)
+	}
+
+	// 4. Comment Inside String Literal
+	srcInsideString := `use foo/bar {
+  source "https://example.com/#fragment"
+}`
+	fInsideString, err := dsl.Parse("", []byte(srcInsideString))
+	if err != nil {
+		t.Fatalf("Parse comment inside string literal error: %v", err)
+	}
+	expectedInsideString := &ast.File{
+		Bundles: []ast.BundleDecl{
+			{
+				Use:    "foo/bar",
+				Source: func() *string { s := "https://example.com/#fragment"; return &s }(),
+			},
+		},
+	}
+	if !reflect.DeepEqual(fInsideString, expectedInsideString) {
+		t.Errorf("expected %+v, got %+v", expectedInsideString, fInsideString)
+	}
+
+	// 5. Comments in Block Options, Depends, and Build Blocks
+	srcComplex := `# global comment
+use foo/bar {
+  # before source
+  source "./local" # inline source comment
+  as foo-alias # inline as comment
+  # before depends
+  depends (
+    dep1 # dep1 comment
+    dep2
+  ) # end of depends comment
+  enable_if "true"
+} # end of bundle comment`
+
+	fComplex, err := dsl.Parse("", []byte(srcComplex))
+	if err != nil {
+		t.Fatalf("Parse complex comment scenario error: %v", err)
+	}
+	expectedComplex := &ast.File{
+		Bundles: []ast.BundleDecl{
+			{
+				Use:      "foo/bar",
+				Source:   func() *string { s := "./local"; return &s }(),
+				Aliases:  []string{"foo-alias"},
+				Depends:  []string{"dep1", "dep2"},
+				EnableIf: func() *string { s := "true"; return &s }(),
+			},
+		},
+	}
+	if !reflect.DeepEqual(fComplex, expectedComplex) {
+		t.Errorf("expected %+v, got %+v", expectedComplex, fComplex)
+	}
+}
