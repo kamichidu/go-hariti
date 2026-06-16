@@ -27,6 +27,8 @@ func (c *InstallCommand) Run(ctx *cli.Context, args []string) error {
 		fmt.Fprint(ctx.Stderr, installUsage)
 	}
 
+	ctx.Global.Register(fs)
+
 	if err := fs.Parse(args); err != nil {
 		return err
 	}

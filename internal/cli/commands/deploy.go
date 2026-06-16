@@ -27,6 +27,8 @@ func (c *DeployCommand) Run(ctx *cli.Context, args []string) error {
 		fmt.Fprint(ctx.Stderr, deployUsage)
 	}
 
+	ctx.Global.Register(fs)
+
 	if err := fs.Parse(args); err != nil {
 		return err
 	}

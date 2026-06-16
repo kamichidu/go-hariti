@@ -356,6 +356,51 @@ Hariti's CLI is designed to be lightweight, predictable, and fully independent f
 2. **Local Override Precedence**: If a global flag is specified both before and after the subcommand, the subcommand-local (later) value must take precedence.
    - `hariti --config-dir A install --config-dir B` -> `config-dir = B`.
 
+### CLI Global Flag Policy
+
+Hariti allows global CLI flags to be specified either before or after the subcommand for usability.
+
+Examples:
+
+```text
+hariti -c ./hariti.toml install
+hariti install -c ./hariti.toml
+```
+
+Both forms are valid.
+
+However, this does not change ownership of configuration resolution.
+
+#### Rules
+
+1. **Global Flag Definitions Are Centralized**
+
+   Global flags must be registered through a shared helper such as:
+
+   ```go
+   GlobalFlags.Register(fs *flag.FlagSet)
+   ```
+
+   Individual subcommands must not duplicate global flag definitions manually.
+
+2. **Parsing May Be Distributed, Resolution Must Be Centralized**
+
+   Subcommands may parse global flags to support post-subcommand placement.
+
+   However, subcommands must not independently resolve paths, XDG defaults, config files, environment variables, or logger configuration.
+
+3. **Commands Consume Resolved Context**
+
+   Command implementations should consume resolved CLI context.
+
+   They should not know how global options were provided.
+
+4. **Presentation Layer Owns CLI Resolution**
+
+   CLI flag parsing and resolution belong to `internal/cli`.
+
+   Root Hariti packages and public domain packages must remain independent of CLI parsing behavior.
+
 ### Responsibility Boundaries:
 - **`cmd/hariti/`**: Binary entrypoint ONLY.
 - **`internal/cli/`**: CLI presentation layer (global flags, parsing, routing, and context propagation).

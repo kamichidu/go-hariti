@@ -13,19 +13,15 @@ import (
 var rootUsage string
 
 func Run(ctx context.Context, args []string) int {
+	cmdMap := make(map[string]Command)
+	for _, cmd := range All() {
+		cmdMap[cmd.Name()] = cmd
+	}
+
 	fs := flag.NewFlagSet("hariti", flag.ContinueOnError)
 
-	var configFlag string
-	var configDirFlag string
-	var dataDirFlag string
-	var verbose bool
-
-	fs.StringVar(&configFlag, "config", "", "path to bundles.hariti configuration file")
-	fs.StringVar(&configFlag, "c", "", "path to bundles.hariti configuration file")
-	fs.StringVar(&configDirFlag, "config-dir", "", "path to configuration directory")
-	fs.StringVar(&dataDirFlag, "data-dir", "", "path to data directory")
-	fs.BoolVar(&verbose, "verbose", false, "enable verbose output")
-	fs.BoolVar(&verbose, "v", false, "enable verbose output")
+	global := &GlobalFlags{}
+	global.Register(fs)
 
 	fs.Usage = func() {
 		//nolint:errcheck // safe: writing help/usage text to stderr is a presentation output; failures do not affect logic or durability
@@ -40,42 +36,35 @@ func Run(ctx context.Context, args []string) int {
 	}
 
 	// 1. Resolve Config Dir
-	var configDir string
-	if configDirFlag != "" {
-		configDir = configDirFlag
-	} else {
+	if global.ConfigDir == "" {
 		xdgConfig := os.Getenv("XDG_CONFIG_HOME")
 		if xdgConfig == "" {
 			home, _ := os.UserHomeDir()
 			xdgConfig = filepath.Join(home, ".config")
 		}
-		configDir = filepath.Join(xdgConfig, "hariti")
+		global.ConfigDir = filepath.Join(xdgConfig, "hariti")
 	}
 
 	// 2. Resolve Config File Path
-	var configFile string
-	if configFlag != "" {
-		configFile = configFlag
-	} else if os.Getenv("HARITI_CONFIG") != "" {
-		configFile = os.Getenv("HARITI_CONFIG")
-	} else {
-		configFile = filepath.Join(configDir, "bundles.hariti")
+	if global.ConfigFile == "" {
+		if os.Getenv("HARITI_CONFIG") != "" {
+			global.ConfigFile = os.Getenv("HARITI_CONFIG")
+		} else {
+			global.ConfigFile = filepath.Join(global.ConfigDir, "bundles.hariti")
+		}
 	}
 
 	// 3. Resolve Data Dir
-	var dataDir string
-	if dataDirFlag != "" {
-		dataDir = dataDirFlag
-	} else {
+	if global.DataDir == "" {
 		xdgData := os.Getenv("XDG_DATA_HOME")
 		if xdgData == "" {
 			home, _ := os.UserHomeDir()
 			xdgData = filepath.Join(home, ".local", "share")
 		}
-		dataDir = filepath.Join(xdgData, "hariti")
+		global.DataDir = filepath.Join(xdgData, "hariti")
 	}
 
-	logger := NewCLILogger(verbose)
+	logger := NewCLILogger(global.Verbose)
 
 	remaining := fs.Args()
 	if len(remaining) == 0 {
@@ -88,20 +77,10 @@ func Run(ctx context.Context, args []string) int {
 
 	cliCtx := &Context{
 		Context: ctx,
-		Global: &GlobalFlags{
-			ConfigFile: configFile,
-			ConfigDir:  configDir,
-			DataDir:    dataDir,
-			Verbose:    verbose,
-		},
-		Logger: logger,
-		Stdout: os.Stdout,
-		Stderr: os.Stderr,
-	}
-
-	cmdMap := make(map[string]Command)
-	for _, cmd := range All() {
-		cmdMap[cmd.Name()] = cmd
+		Global:  global,
+		Logger:  logger,
+		Stdout:  os.Stdout,
+		Stderr:  os.Stderr,
 	}
 
 	cmd, found := cmdMap[subcmd]
@@ -112,6 +91,9 @@ func Run(ctx context.Context, args []string) int {
 	}
 
 	if err := cmd.Run(cliCtx, subcmdArgs); err != nil {
+		if err == flag.ErrHelp {
+			return 0
+		}
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		return 1
 	}

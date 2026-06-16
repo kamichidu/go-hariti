@@ -27,6 +27,8 @@ func (c *SyncCommand) Run(ctx *cli.Context, args []string) error {
 		fmt.Fprint(ctx.Stderr, syncUsage)
 	}
 
+	ctx.Global.Register(fs)
+
 	if err := fs.Parse(args); err != nil {
 		return err
 	}

@@ -29,6 +29,8 @@ func (c *DumpGraphCommand) Run(ctx *cli.Context, args []string) error {
 		fmt.Fprint(ctx.Stderr, dumpGraphUsage)
 	}
 
+	ctx.Global.Register(fs)
+
 	if err := fs.Parse(args); err != nil {
 		return err
 	}

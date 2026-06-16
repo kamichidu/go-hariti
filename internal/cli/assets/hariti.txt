@@ -3,9 +3,13 @@ Usage:
 
 Global Options:
   -c, --config <file>       Path to bundles.hariti configuration file
+                            (default: $HARITI_CONFIG, --config-dir/bundles.hariti, or $XDG_CONFIG_HOME/hariti/bundles.hariti)
       --config-dir <dir>    Path to configuration directory
+                            (default: $XDG_CONFIG_HOME/hariti)
       --data-dir <dir>      Path to data directory
+                            (default: $XDG_DATA_HOME/hariti)
   -v, --verbose             Enable verbose output
+                            (default: false)
   -h, --help                Show this help
 
 Subcommands:
