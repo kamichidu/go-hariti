@@ -38,6 +38,30 @@ func NewHariti(config *HaritiConfig) *Hariti {
 	return &Hariti{config, logger}
 }
 
+type runtimeGraph struct {
+	source  *graph.Graph
+	bundles []graph.Bundle
+}
+
+func (h *Hariti) resolveBundle(bundle graph.Bundle) graph.Bundle {
+	if bundle.Source.Type == graph.SourceTypeRemote && bundle.Source.Path == "" {
+		bundle.Source.Path = filepath.Join(h.RepositoriesDir(), url.QueryEscape(bundle.ID))
+		h.logger.Debugf("resolving remote bundle %s cache path to %s", bundle.ID, bundle.Source.Path)
+	}
+	return bundle
+}
+
+func (h *Hariti) newRuntimeGraph(g *graph.Graph) *runtimeGraph {
+	rg := &runtimeGraph{
+		source:  g,
+		bundles: make([]graph.Bundle, len(g.Bundles)),
+	}
+	for i, b := range g.Bundles {
+		rg.bundles[i] = h.resolveBundle(b)
+	}
+	return rg
+}
+
 func (h *Hariti) SetupManagedDirectory() error {
 	directories := []string{
 		h.config.Paths.ConfigDir,

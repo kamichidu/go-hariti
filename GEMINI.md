@@ -157,6 +157,11 @@ The following concepts must adhere strictly to these semantic definitions throug
 **IR (Intermediate Representation)**
 : The `hariti` IR represents **only the Plugin Graph**. The IR must not represent `Vimscript`, `RuntimePath`, `Generation Layout`, or `Filesystem Layout`.
 
+**Runtime Graph**
+: Represents the internal, environment-resolved execution view of the Plugin Graph.
+: Unlike the declarative public Graph IR (which represents only the user-declared config), the Runtime Graph may contain environment-specific resolved values (e.g., resolving cache directory paths for remote bundles under `repos/`).
+: The public Graph IR must never be mutated during runtime; all environment-specific and runtime-specific state must remain local to the Runtime Graph.
+
 ---
 
 ## 5. Development & Coding Standards
@@ -472,6 +477,61 @@ A logger is strictly an observability component. To enforce high decoupling, str
 * Trigger a program panic (such as calling `panic` inside logging logic).
 * Alter the application's control flow in any way.
 Program lifecycle and termination decisions belong exclusively to the calling layers (such as the CLI presentation, application layer, or main entrypoint) rather than the logging implementation.
+
+### Logging Output Policy
+
+The logger exists to support observability. It should help understand what Hariti attempted, what it observed, where it stopped, what can be ignored, and what needs human attention.
+
+#### Severity Policy
+
+##### DEBUG
+Use `debug` for developer-oriented details that are useful for diagnosis but unnecessary during normal operation.
+- **Examples**:
+  - `detected VCS adapter`
+  - `resolved repository path`
+  - `resolved revision`
+  - `archive source/destination`
+  - `generated file path`
+  - `skipped optional step`
+  - `bundle-level processing detail`
+- DEBUG logs may be verbose. They are hidden by default and shown only when `--verbose` enables debug-level logging.
+
+##### INFO
+Use `info` for normal lifecycle progress. INFO should allow a user to understand what Hariti is doing without reading debug logs.
+- **Examples**:
+  - `sync started`
+  - `sync completed`
+  - `deploy started`
+  - `generation created`
+  - `current generation switched`
+  - `runtimepath projection generated`
+- INFO logs must not be too noisy. Prefer lifecycle-level events over per-file details.
+
+##### WARN
+Use `warn` only when the current operation can continue, the command may still return success, the state deserves user attention, and manual confirmation or later intervention may be desirable (e.g. *"This did not fail now, but a human should probably notice it"*).
+- **Examples**:
+  - `old generation cleanup failed, but current switch succeeded`
+  - `optional hook failed, but deployment continued`
+  - `unexpected cache entry was ignored`
+  - `lockfile contained stale bundle entry and was regenerated`
+  - `non-critical snapshot update fallback was used`
+- Do not use WARN for normal progress. Do not use WARN for errors that cause the command to fail.
+
+##### ERROR
+Use `error` for failures that cause the current operation to fail.
+- **Examples**:
+  - `repository sync failed`
+  - `archive failed`
+  - `lockfile parse failed`
+  - `generation creation failed`
+  - `current switch failed`
+  - `runtimepath projection failed`
+- If an error is returned to the caller, avoid logging the same error multiple times at multiple layers. Prefer logging once at the boundary where the error becomes operationally meaningful.
+
+#### Responsibility Rules
+1. **Logger Output Is Operational Observation**: Logs should describe what Hariti is doing or what state it observed. Logs are not UI/CLI presentation messages.
+2. **No Conditional Verbose Branches**: Core code must not branch based on verbose flags; always log at the correct severity directly (e.g. `logger.Debugf(...)`).
+3. **Avoid Log Duplication**: Do not log and wrap the same error repeatedly across multiple layers. Return wrapped errors up and log once at the command/application boundary.
 
 ---
 

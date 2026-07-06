@@ -46,6 +46,10 @@ func (g *Git) Sync(c context.Context, bundle graph.Bundle) error {
 		urlStr = bundle.Source.URL.String()
 	}
 
+	if log != nil {
+		log.Infof("Git sync started for bundle %s with URL %s in local path %q", bundle.ID, urlStr, localPath)
+	}
+
 	if info, err := os.Stat(localPath); err != nil {
 		if log != nil {
 			log.Infof("Cloning %s to %s\n", urlStr, localPath)
@@ -62,6 +66,9 @@ func (g *Git) Sync(c context.Context, bundle graph.Bundle) error {
 		}
 
 		// 1. Fetch all
+		if log != nil {
+			log.Infof("Executing git fetch --all --prune in %s", localPath)
+		}
 		fetchCmd := exec.Command("git", "fetch", "--all", "--prune")
 		fetchCmd.Dir = localPath
 		fetchCmd.Stdout = out
@@ -71,6 +78,9 @@ func (g *Git) Sync(c context.Context, bundle graph.Bundle) error {
 		}
 
 		// 2. Resolve tracked upstream ref
+		if log != nil {
+			log.Infof("Resolving tracked upstream ref in %s", localPath)
+		}
 		revParseCmd := exec.Command("git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
 		revParseCmd.Dir = localPath
 		var upstreamStdout bytes.Buffer
@@ -85,6 +95,9 @@ func (g *Git) Sync(c context.Context, bundle graph.Bundle) error {
 		}
 
 		// 3. Hard reset to resolved upstream ref
+		if log != nil {
+			log.Infof("Executing git reset --hard %s in %s", upstream, localPath)
+		}
 		resetCmd := exec.Command("git", "reset", "--hard", upstream)
 		resetCmd.Dir = localPath
 		resetCmd.Stdout = out
@@ -171,8 +184,13 @@ func (g *Git) HeadRevision(c context.Context, bundle graph.Bundle) (string, erro
 }
 
 func (g *Git) Archive(c context.Context, bundle graph.Bundle, revision string, destDir string) error {
+	log := vcs.LoggerFromContext(c)
 	errOut := vcs.ErrWriterFromContext(c)
 	localPath := bundle.Source.Path
+
+	if log != nil {
+		log.Infof("Git archive started for bundle %s with revision %s in local path %q, destDir %q", bundle.ID, revision, localPath, destDir)
+	}
 
 	cmd := exec.Command("git", "archive", "--format=tar", revision)
 	cmd.Dir = localPath

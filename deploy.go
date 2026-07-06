@@ -31,43 +31,6 @@ func getExportedBundleDirName(bundleID string) string {
 	return strings.ReplaceAll(bundleID, "/", "_")
 }
 
-func copyDir(src, dest string) error {
-	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		rel, err := filepath.Rel(src, path)
-		if err != nil {
-			return err
-		}
-		destPath := filepath.Join(dest, rel)
-
-		if info.IsDir() {
-			return os.MkdirAll(destPath, info.Mode())
-		}
-
-		srcFile, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		//nolint:errcheck // safe: srcFile is read-only; closing error cannot affect file integrity or durability
-		defer srcFile.Close()
-
-		destFile, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode())
-		if err != nil {
-			return err
-		}
-
-		_, err = io.Copy(destFile, srcFile)
-		closeErr := destFile.Close()
-		if err == nil {
-			err = closeErr
-		}
-		return err
-	})
-}
-
 func matchOS(stepOS, currentOS string) bool {
 	if stepOS == "all" || stepOS == "*" {
 		return true
@@ -79,7 +42,8 @@ func matchOS(stepOS, currentOS string) bool {
 }
 
 func (h *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptions) (string, error) {
-	h.logger.Infof("Starting generation deployment...")
+	rg := h.newRuntimeGraph(g)
+	h.logger.Infof("deploy started")
 
 	// Read project-side hariti.lock content
 	lockBytes, err := os.ReadFile(h.LockfilePath())
@@ -97,6 +61,7 @@ func (h *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptions)
 	if err := os.MkdirAll(genDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create generation directory: %w", err)
 	}
+	h.logger.Infof("generation created: %s", genID)
 
 	// Parse lockfile to get mapped revisions
 	var lock Lockfile
@@ -109,13 +74,14 @@ func (h *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptions)
 		revisionsMap[entry.ID] = entry.Revision
 	}
 
-	for _, bundle := range g.Bundles {
+	for _, bundle := range rg.bundles {
 		if bundle.Source.Type == graph.SourceTypeLocal {
-			// Local source: Skip folder creation and copying completely
+			h.logger.Debugf("local bundle %s: skipped folder creation and copying", bundle.ID)
 			continue
 		}
 
 		destDir := filepath.Join(genDir, "pack", "hariti", "opt", getExportedBundleDirName(bundle.ID))
+		h.logger.Debugf("resolved repository path for bundle %s to %s", bundle.ID, destDir)
 		if err := os.MkdirAll(destDir, 0755); err != nil {
 			return "", fmt.Errorf("failed to create directory for bundle %s: %w", bundle.ID, err)
 		}
@@ -126,6 +92,7 @@ func (h *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptions)
 			if !exists || revision == "" {
 				return "", fmt.Errorf("no revision found in lockfile for remote bundle %s", bundle.ID)
 			}
+			h.logger.Debugf("resolved revision for bundle %s to %s", bundle.ID, revision)
 
 			v := vcs.Detect(bundle.Source.URL)
 			if v == nil {
@@ -133,18 +100,19 @@ func (h *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptions)
 			}
 
 			vcsCtx := vcs.WithLogger(ctx, h.logger)
+			vcsCtx = vcs.WithWriter(vcsCtx, h.config.Writer)
+			vcsCtx = vcs.WithErrWriter(vcsCtx, h.config.ErrWriter)
+			h.logger.Debugf("archive source %s/destination %s", bundle.ID, destDir)
 			err := v.Archive(vcsCtx, bundle, revision, destDir)
 			if err != nil {
-				// TODO: Fallback to working tree copy as per specification
-				if err := copyDir(bundle.Source.Path, destDir); err != nil {
-					return "", fmt.Errorf("failed to copy remote bundle %s working copy: %w", bundle.ID, err)
-				}
+				return "", fmt.Errorf("failed to archive remote bundle %s at revision %s: %w", bundle.ID, revision, err)
 			}
 		}
 
 		// Run build steps inside the EXPORTED bundle directory in the generation
 		for _, step := range bundle.Build {
 			if matchOS(step.OS, runtime.GOOS) {
+				h.logger.Debugf("running build step for %s: %s", bundle.ID, step.Cmd)
 				var buildCmd *exec.Cmd
 				if runtime.GOOS == "windows" {
 					buildCmd = exec.Command("cmd", "/c", step.Cmd)
@@ -161,7 +129,7 @@ func (h *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptions)
 
 	// Generate packadd.vim inside the generation dir
 	var packaddContent strings.Builder
-	for _, bundle := range g.Bundles {
+	for _, bundle := range rg.bundles {
 		if bundle.Source.Type == graph.SourceTypeLocal {
 			localPath := bundle.Source.Path
 			if bundle.EnableIf != "" {
@@ -190,6 +158,8 @@ func (h *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptions)
 	if err := os.WriteFile(filepath.Join(genDir, "packadd.vim"), []byte(packaddContent.String()), 0644); err != nil {
 		return "", fmt.Errorf("failed to write packadd.vim: %w", err)
 	}
+	h.logger.Infof("runtimepath projection generated")
+	h.logger.Debugf("generated file path: %s", filepath.Join(genDir, "packadd.vim"))
 
 	// Copy hariti.lock to lock.json
 	if err := os.WriteFile(filepath.Join(genDir, "lock.json"), lockBytes, 0644); err != nil {
@@ -228,6 +198,7 @@ func (h *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptions)
 			return "", fmt.Errorf("failed to switch current symlink: %w", err)
 		}
 	}
+	h.logger.Infof("current generation switched to: %s", genID)
 
 	return genID, nil
 }
