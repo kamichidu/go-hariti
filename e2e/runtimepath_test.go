@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -159,10 +160,13 @@ try
 catch
   let help_ok = "FAILURE: " . v:exception
 endtry
+let result = {
+\ 'runtimepath': &runtimepath,
+\ 'vimruntime': $VIMRUNTIME,
+\ 'help': help_ok,
+\}
 redir! > %s
-silent echo &runtimepath
-silent echo $VIMRUNTIME
-silent echo help_ok
+silent echo json_encode(result)
 redir END
 qa!
 `, filepath.ToSlash(currentPath), filepath.ToSlash(currentPath), filepath.ToSlash(outFile))
@@ -182,31 +186,41 @@ qa!
 		t.Fatalf("failed to read vim output file: %v", err)
 	}
 
-	outputLines := strings.Split(strings.TrimSpace(string(outputBytes)), "\n")
-	var lines []string
-	for _, line := range outputLines {
-		if trimmed := strings.TrimSpace(line); trimmed != "" {
-			lines = append(lines, trimmed)
+	type vimResult struct {
+		Runtimepath string `json:"runtimepath"`
+		Vimruntime  string `json:"vimruntime"`
+		Help        string `json:"help"`
+	}
+
+	var res vimResult
+	foundJSON := false
+	for _, line := range strings.Split(string(outputBytes), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		if err := json.Unmarshal([]byte(trimmed), &res); err == nil {
+			foundJSON = true
+			break
 		}
 	}
 
-	if len(lines) < 3 {
-		t.Fatalf("unexpected vim output structure (expected at least 3 lines): %v", lines)
+	if !foundJSON {
+		t.Fatalf("failed to find valid JSON output from Vim in: %s", string(outputBytes))
 	}
 
-	rawRuntimepath := lines[0]
+	rawRuntimepath := res.Runtimepath
 	if rawRuntimepath == "" {
 		t.Fatalf("failed to retrieve non-empty &runtimepath from Vim")
 	}
 
-	vimRuntime := lines[1]
+	vimRuntime := res.Vimruntime
 	if vimRuntime == "" {
 		t.Fatalf("failed to retrieve non-empty $VIMRUNTIME from Vim")
 	}
 
-	helpStatus := lines[2]
-	if helpStatus != "SUCCESS" {
-		t.Errorf("Vim help verification failed: %s", helpStatus)
+	if res.Help != "SUCCESS" {
+		t.Errorf("Vim help verification failed: %s", res.Help)
 	}
 
 	homeDir, err := os.UserHomeDir()
