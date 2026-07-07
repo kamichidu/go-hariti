@@ -16,20 +16,21 @@ type SyncEventType string
 
 const (
 	SyncEventStarted         SyncEventType = "started"
-	SyncEventBundleStarted   SyncEventType = "bundle_started"
-	SyncEventBundleCompleted SyncEventType = "bundle_completed"
-	SyncEventBundleFailed    SyncEventType = "bundle_failed"
+	SyncEventBundleStarted   SyncEventType = "bundle-started"
+	SyncEventBundleCompleted SyncEventType = "bundle-completed"
+	SyncEventBundleFailed    SyncEventType = "bundle-failed"
 	SyncEventCompleted       SyncEventType = "completed"
 	SyncEventFailed          SyncEventType = "failed"
 )
 
 type SyncProgressEvent struct {
-	Type     SyncEventType
-	BundleID string
-	Total    int
-	Num      int
-	Err      error
-	Output   string
+	Type        SyncEventType
+	BundleID    string
+	Total       int
+	Num         int
+	Parallelism int
+	Err         error
+	Output      string
 }
 
 type SyncOptions struct {
@@ -40,17 +41,18 @@ type SyncOptions struct {
 func (h *Hariti) Sync(ctx context.Context, g *graph.Graph, opts SyncOptions) ([]RepositoryFact, error) {
 	rg := h.newRuntimeGraph(g)
 
-	h.logger.Infof("sync started")
-	if opts.OnProgress != nil {
-		opts.OnProgress(SyncProgressEvent{
-			Type:  SyncEventStarted,
-			Total: len(rg.bundles),
-		})
-	}
-
 	parallelism := opts.Parallelism
 	if parallelism <= 0 {
 		parallelism = 8
+	}
+
+	h.logger.Infof("sync started")
+	if opts.OnProgress != nil {
+		opts.OnProgress(SyncProgressEvent{
+			Type:        SyncEventStarted,
+			Total:       len(rg.bundles),
+			Parallelism: parallelism,
+		})
 	}
 
 	sem := make(chan struct{}, parallelism)
@@ -73,9 +75,10 @@ func (h *Hariti) Sync(ctx context.Context, g *graph.Graph, opts SyncOptions) ([]
 
 			if opts.OnProgress != nil {
 				opts.OnProgress(SyncProgressEvent{
-					Type:     SyncEventBundleStarted,
-					BundleID: bundle.ID,
-					Total:    len(rg.bundles),
+					Type:        SyncEventBundleStarted,
+					BundleID:    bundle.ID,
+					Total:       len(rg.bundles),
+					Parallelism: parallelism,
 				})
 			}
 
@@ -85,12 +88,13 @@ func (h *Hariti) Sync(ctx context.Context, g *graph.Graph, opts SyncOptions) ([]
 				num := atomic.AddInt32(&completedCount, 1)
 				if opts.OnProgress != nil {
 					opts.OnProgress(SyncProgressEvent{
-						Type:     SyncEventBundleFailed,
-						BundleID: bundle.ID,
-						Total:    len(rg.bundles),
-						Num:      int(num),
-						Err:      err,
-						Output:   gitOutput.String(),
+						Type:        SyncEventBundleFailed,
+						BundleID:    bundle.ID,
+						Total:       len(rg.bundles),
+						Num:         int(num),
+						Parallelism: parallelism,
+						Err:         err,
+						Output:      gitOutput.String(),
 					})
 				}
 				return err
@@ -99,10 +103,11 @@ func (h *Hariti) Sync(ctx context.Context, g *graph.Graph, opts SyncOptions) ([]
 			num := atomic.AddInt32(&completedCount, 1)
 			if opts.OnProgress != nil {
 				opts.OnProgress(SyncProgressEvent{
-					Type:     SyncEventBundleCompleted,
-					BundleID: bundle.ID,
-					Total:    len(rg.bundles),
-					Num:      int(num),
+					Type:        SyncEventBundleCompleted,
+					BundleID:    bundle.ID,
+					Total:       len(rg.bundles),
+					Num:         int(num),
+					Parallelism: parallelism,
 				})
 			}
 			return nil
@@ -112,10 +117,11 @@ func (h *Hariti) Sync(ctx context.Context, g *graph.Graph, opts SyncOptions) ([]
 	if err := eg.Wait(); err != nil {
 		if opts.OnProgress != nil {
 			opts.OnProgress(SyncProgressEvent{
-				Type:  SyncEventFailed,
-				Total: len(rg.bundles),
-				Num:   int(atomic.LoadInt32(&completedCount)),
-				Err:   err,
+				Type:        SyncEventFailed,
+				Total:       len(rg.bundles),
+				Num:         int(atomic.LoadInt32(&completedCount)),
+				Parallelism: parallelism,
+				Err:         err,
 			})
 		}
 		return nil, err
@@ -129,9 +135,10 @@ func (h *Hariti) Sync(ctx context.Context, g *graph.Graph, opts SyncOptions) ([]
 	h.logger.Infof("sync completed")
 	if opts.OnProgress != nil {
 		opts.OnProgress(SyncProgressEvent{
-			Type:  SyncEventCompleted,
-			Total: len(rg.bundles),
-			Num:   len(rg.bundles),
+			Type:        SyncEventCompleted,
+			Total:       len(rg.bundles),
+			Num:         len(rg.bundles),
+			Parallelism: parallelism,
 		})
 	}
 
@@ -189,10 +196,6 @@ func (h *Hariti) syncOneBundle(ctx context.Context, bundle graph.Bundle, fact *R
 
 		err = v.Sync(vcsCtx, bundle)
 		if err != nil {
-			outputStr := gitOutput.String()
-			if outputStr != "" {
-				return fmt.Errorf("failed to sync bundle %s: %w\nGit Output:\n%s", bundle.ID, err, outputStr)
-			}
 			return fmt.Errorf("failed to sync bundle %s: %w", bundle.ID, err)
 		}
 
