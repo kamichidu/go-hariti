@@ -1,0 +1,7 @@
+*dep-plugin.txt*   For Vim version 9.0.
+
+DEP PLUGIN                                      *dep-plugin*
+
+This is a dummy dependency plugin help file.
+
+ vim:tw=78:ts=8:ft=help:norl:

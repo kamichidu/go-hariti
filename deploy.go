@@ -76,6 +76,10 @@ func (h *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptions)
 	for _, bundle := range rg.bundles {
 		if bundle.Source.Type == graph.SourceTypeLocal {
 			h.logger.Debugf("local bundle %s: skipped folder creation and copying", bundle.ID)
+			docDir := filepath.Join(bundle.Source.Path, "doc")
+			if err := h.buildHelpTags(bundle.ID, docDir); err != nil {
+				return "", err
+			}
 			continue
 		}
 
@@ -125,6 +129,12 @@ func (h *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptions)
 					return "", fmt.Errorf("failed to run build step for bundle %s on %s: %w", bundle.ID, step.OS, err)
 				}
 			}
+		}
+
+		// Help tag generation for remote/exported bundle
+		docDir := filepath.Join(destDir, "doc")
+		if err := h.buildHelpTags(bundle.ID, docDir); err != nil {
+			return "", err
 		}
 	}
 
@@ -202,4 +212,28 @@ func (h *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptions)
 	h.logger.Infof("current generation switched to: %s", genID)
 
 	return genID, nil
+}
+
+func (h *Hariti) buildHelpTags(bundleID, docDir string) error {
+	info, err := os.Stat(docDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// doc/ does not exist => skip silently
+			return nil
+		}
+		return fmt.Errorf("failed to inspect doc path for bundle %s inside %s: %w", bundleID, docDir, err)
+	}
+	if !info.IsDir() {
+		// doc exists but is not directory => WARN and skip
+		h.logger.Warnf("bundle %s: expected %s to be a directory, skipping help tag generation", bundleID, docDir)
+		return nil
+	}
+
+	h.logger.Debugf("generating help tags for bundle %s inside %s", bundleID, docDir)
+	escapedCmd := fmt.Sprintf("execute 'helptags' fnameescape(%q)", filepath.ToSlash(docDir))
+	cmd := exec.Command("vim", "-Nu", "NONE", "-n", "-e", "-s", "-c", escapedCmd, "-c", "qa!")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to generate help tags for bundle %s inside %s: %w (output: %s)", bundleID, docDir, err, string(out))
+	}
+	return nil
 }

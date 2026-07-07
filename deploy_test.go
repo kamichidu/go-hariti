@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -271,5 +272,138 @@ func TestHariti_Deploy_Failure_BuildStep(t *testing.T) {
 
 	if !strings.Contains(err.Error(), "failed to run build step for bundle my/remote-plugin on all") {
 		t.Errorf("expected error message to contain build step failure detail, got: %v", err)
+	}
+}
+
+func TestHariti_Deploy_Failure_HelpTags(t *testing.T) {
+	// Skip test if vim is not installed
+	if _, err := exec.LookPath("vim"); err != nil {
+		t.Skip("vim not installed")
+	}
+
+	tmpDir := t.TempDir()
+
+	xdgHome := filepath.Join(tmpDir, "xdg_home")
+	_ = os.Setenv("XDG_DATA_HOME", xdgHome)
+	defer func() {
+		_ = os.Unsetenv("XDG_DATA_HOME")
+	}()
+
+	// Setup local plugin with doc/tags/ as a directory to trigger helptags failure
+	localPluginDir := filepath.Join(tmpDir, "local_plugin")
+	docTagsDir := filepath.Join(localPluginDir, "doc", "tags")
+	if err := os.MkdirAll(docTagsDir, 0755); err != nil {
+		t.Fatalf("failed to create doc/tags directory: %v", err)
+	}
+
+	// Write dummy txt help file so helptags attempts to run
+	helpFile := filepath.Join(localPluginDir, "doc", "plugin.txt")
+	if err := os.WriteFile(helpFile, []byte("*plugin.txt* dummy"), 0644); err != nil {
+		t.Fatalf("failed to write help file: %v", err)
+	}
+
+	g := &graph.Graph{
+		Bundles: []graph.Bundle{
+			{
+				ID: "my/local-plugin",
+				Source: graph.Source{
+					Type: graph.SourceTypeLocal,
+					Path: localPluginDir,
+				},
+			},
+		},
+	}
+
+	cfg := &hariti.HaritiConfig{
+		Paths: hariti.Paths{
+			ConfigFile: filepath.Join(tmpDir, "bundles.hariti"),
+			ConfigDir:  tmpDir,
+			DataDir:    filepath.Join(xdgHome, "hariti"),
+		},
+		Writer:    io.Discard,
+		ErrWriter: io.Discard,
+	}
+	har := hariti.NewHariti(cfg)
+
+	if err := har.SetupManagedDirectory(); err != nil {
+		t.Fatalf("failed to setup managed directories: %v", err)
+	}
+
+	// Write dummy lockfile
+	if err := os.WriteFile(har.LockfilePath(), []byte(`{"bundles": []}`), 0644); err != nil {
+		t.Fatalf("failed to write dummy lockfile: %v", err)
+	}
+
+	ctx := context.Background()
+
+	// Deploy should fail due to help tags generation failure
+	_, err := har.Deploy(ctx, g, hariti.DeployOptions{})
+	if err == nil {
+		t.Fatal("expected Deploy to fail due to help tags generation failure, but it succeeded")
+	}
+
+	if !strings.Contains(err.Error(), "failed to generate help tags for bundle my/local-plugin") {
+		t.Errorf("expected error message to contain help tags failure detail, got: %v", err)
+	}
+}
+
+func TestHariti_Deploy_Success_HelpTags_NonDirectoryDoc(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	xdgHome := filepath.Join(tmpDir, "xdg_home")
+	_ = os.Setenv("XDG_DATA_HOME", xdgHome)
+	defer func() {
+		_ = os.Unsetenv("XDG_DATA_HOME")
+	}()
+
+	// Setup local plugin with doc as a regular file (not directory)
+	localPluginDir := filepath.Join(tmpDir, "local_plugin")
+	if err := os.MkdirAll(localPluginDir, 0755); err != nil {
+		t.Fatalf("failed to create local plugin directory: %v", err)
+	}
+
+	docFile := filepath.Join(localPluginDir, "doc")
+	if err := os.WriteFile(docFile, []byte("not a directory"), 0644); err != nil {
+		t.Fatalf("failed to write doc file: %v", err)
+	}
+
+	g := &graph.Graph{
+		Bundles: []graph.Bundle{
+			{
+				ID: "my/local-plugin",
+				Source: graph.Source{
+					Type: graph.SourceTypeLocal,
+					Path: localPluginDir,
+				},
+			},
+		},
+	}
+
+	cfg := &hariti.HaritiConfig{
+		Paths: hariti.Paths{
+			ConfigFile: filepath.Join(tmpDir, "bundles.hariti"),
+			ConfigDir:  tmpDir,
+			DataDir:    filepath.Join(xdgHome, "hariti"),
+		},
+		Writer:    io.Discard,
+		ErrWriter: io.Discard,
+	}
+	har := hariti.NewHariti(cfg)
+
+	if err := har.SetupManagedDirectory(); err != nil {
+		t.Fatalf("failed to setup managed directories: %v", err)
+	}
+
+	// Write dummy lockfile
+	if err := os.WriteFile(har.LockfilePath(), []byte(`{"bundles": []}`), 0644); err != nil {
+		t.Fatalf("failed to write dummy lockfile: %v", err)
+	}
+
+	ctx := context.Background()
+
+	// Deploy should succeed, skipping help tags with a warning
+	_, err := har.Deploy(ctx, g, hariti.DeployOptions{})
+	if err != nil {
+		t.Fatalf("expected Deploy to succeed with non-directory doc warning, but got error: %v", err)
 	}
 }

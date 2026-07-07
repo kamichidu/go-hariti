@@ -1,0 +1,7 @@
+*local-plugin.txt*   For Vim version 9.0.
+
+LOCAL PLUGIN                                    *local-plugin*
+
+This is a dummy local plugin help file.
+
+ vim:tw=78:ts=8:ft=help:norl:

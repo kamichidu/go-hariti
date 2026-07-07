@@ -153,9 +153,16 @@ func TestE2E_VimRuntimepathProjection(t *testing.T) {
 	scriptContent := fmt.Sprintf(`set nomore
 set packpath+=%s
 source %s/packadd.vim
+try
+  help local-plugin
+  let help_ok = "SUCCESS"
+catch
+  let help_ok = "FAILURE: " . v:exception
+endtry
 redir! > %s
 silent echo &runtimepath
 silent echo $VIMRUNTIME
+silent echo help_ok
 redir END
 qa!
 `, filepath.ToSlash(currentPath), filepath.ToSlash(currentPath), filepath.ToSlash(outFile))
@@ -183,8 +190,8 @@ qa!
 		}
 	}
 
-	if len(lines) < 2 {
-		t.Fatalf("unexpected vim output structure (expected at least 2 lines): %v", lines)
+	if len(lines) < 3 {
+		t.Fatalf("unexpected vim output structure (expected at least 3 lines): %v", lines)
 	}
 
 	rawRuntimepath := lines[0]
@@ -195,6 +202,11 @@ qa!
 	vimRuntime := lines[1]
 	if vimRuntime == "" {
 		t.Fatalf("failed to retrieve non-empty $VIMRUNTIME from Vim")
+	}
+
+	helpStatus := lines[2]
+	if helpStatus != "SUCCESS" {
+		t.Errorf("Vim help verification failed: %s", helpStatus)
 	}
 
 	homeDir, err := os.UserHomeDir()
