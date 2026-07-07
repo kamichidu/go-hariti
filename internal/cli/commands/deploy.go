@@ -1,10 +1,11 @@
 package commands
 
 import (
+	"context"
 	_ "embed"
-	"flag"
 	"fmt"
 
+	"github.com/kamichidu/go-flagshim"
 	"github.com/kamichidu/go-hariti"
 	"github.com/kamichidu/go-hariti/internal/cli"
 	"github.com/kamichidu/go-hariti/internal/config/dsl"
@@ -19,23 +20,26 @@ func (c *DeployCommand) Name() string {
 	return "deploy"
 }
 
-func (c *DeployCommand) Run(ctx *cli.Context, args []string) error {
-	fs := flag.NewFlagSet("deploy", flag.ContinueOnError)
-	fs.SetOutput(ctx.Stderr)
+func (c *DeployCommand) RegisterFlags(ctx context.Context, fs *flagshim.FlagSet) context.Context {
 	fs.Usage = func() {
 		//nolint:errcheck // safe: writing help/usage text to stderr is a presentation output; failures do not affect logic or durability
-		fmt.Fprint(ctx.Stderr, deployUsage)
+		fmt.Fprint(fs.Output(), deployUsage)
 	}
-
-	ctx.Global.Register(fs)
-
-	if err := fs.Parse(args); err != nil {
-		return err
+	if global, ok := flagshim.FlagFromContext[cli.GlobalFlags](ctx); ok {
+		global.Register(ctx, fs)
 	}
+	return ctx
+}
 
-	configFile := ctx.Global.ConfigFile
-	if fs.NArg() > 0 {
-		configFile = fs.Arg(0)
+func (c *DeployCommand) Run(ctx context.Context, args []string) error {
+	global := cli.GetGlobalFlags(ctx)
+	stdout := cli.GetStdout(ctx)
+	stderr := cli.GetStderr(ctx)
+	logger := cli.GetLogger(ctx)
+
+	configFile := global.ConfigFile
+	if len(args) > 0 {
+		configFile = args[0]
 	}
 
 	g, err := dsl.LoadGraph(configFile)
@@ -45,17 +49,17 @@ func (c *DeployCommand) Run(ctx *cli.Context, args []string) error {
 
 	cfg := &hariti.HaritiConfig{
 		Paths: hariti.Paths{
-			ConfigFile: ctx.Global.ConfigFile,
-			ConfigDir:  ctx.Global.ConfigDir,
-			DataDir:    ctx.Global.DataDir,
+			ConfigFile: global.ConfigFile,
+			ConfigDir:  global.ConfigDir,
+			DataDir:    global.DataDir,
 		},
-		Writer:    ctx.Stdout,
-		ErrWriter: ctx.Stderr,
-		Logger:    ctx.Logger,
+		Writer:    stdout,
+		ErrWriter: stderr,
+		Logger:    logger,
 	}
 	har := hariti.NewHariti(cfg)
 
-	_, err = har.Deploy(ctx.Context, g, hariti.DeployOptions{})
+	_, err = har.Deploy(ctx, g, hariti.DeployOptions{})
 	return err
 }
 

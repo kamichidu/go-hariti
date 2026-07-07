@@ -2,38 +2,41 @@ package cli
 
 import (
 	"context"
-	"flag"
 	"testing"
+
+	"github.com/kamichidu/go-flagshim"
 )
 
 type dummyCommand struct {
 	name    string
-	runFunc func(ctx *Context, args []string) error
+	runFunc func(ctx context.Context, args []string) error
 }
 
 func (c *dummyCommand) Name() string {
 	return c.name
 }
 
-func (c *dummyCommand) Run(ctx *Context, args []string) error {
-	fs := flag.NewFlagSet(c.name, flag.ContinueOnError)
-	ctx.Global.Register(fs)
-	if err := fs.Parse(args); err != nil {
-		return err
+func (c *dummyCommand) RegisterFlags(ctx context.Context, fs *flagshim.FlagSet) context.Context {
+	if global, ok := flagshim.FlagFromContext[GlobalFlags](ctx); ok {
+		global.Register(ctx, fs)
 	}
+	return ctx
+}
+
+func (c *dummyCommand) Run(ctx context.Context, args []string) error {
 	if c.runFunc != nil {
-		return c.runFunc(ctx, fs.Args())
+		return c.runFunc(ctx, args)
 	}
 	return nil
 }
 
 func TestRun_GlobalFlags(t *testing.T) {
-	var lastCtx *Context
+	var lastCtx context.Context
 	var lastArgs []string
 
 	cmd := &dummyCommand{
 		name: "test-cmd",
-		runFunc: func(ctx *Context, args []string) error {
+		runFunc: func(ctx context.Context, args []string) error {
 			lastCtx = ctx
 			lastArgs = args
 			return nil
@@ -109,16 +112,18 @@ func TestRun_GlobalFlags(t *testing.T) {
 				if lastCtx == nil {
 					t.Fatal("expected dummy command to be executed, but runFunc was not called")
 				}
-				if tc.expectConfig != "" && lastCtx.Global.ConfigFile != tc.expectConfig {
-					t.Errorf("expected ConfigFile %q, got %q", tc.expectConfig, lastCtx.Global.ConfigFile)
+
+				global := GetGlobalFlags(lastCtx)
+				if tc.expectConfig != "" && global.ConfigFile != tc.expectConfig {
+					t.Errorf("expected ConfigFile %q, got %q", tc.expectConfig, global.ConfigFile)
 				}
-				if tc.expectConfigDir != "" && lastCtx.Global.ConfigDir != tc.expectConfigDir {
-					t.Errorf("expected ConfigDir %q, got %q", tc.expectConfigDir, lastCtx.Global.ConfigDir)
+				if tc.expectConfigDir != "" && global.ConfigDir != tc.expectConfigDir {
+					t.Errorf("expected ConfigDir %q, got %q", tc.expectConfigDir, global.ConfigDir)
 				}
-				if tc.expectDataDir != "" && lastCtx.Global.DataDir != tc.expectDataDir {
-					t.Errorf("expected DataDir %q, got %q", tc.expectDataDir, lastCtx.Global.DataDir)
+				if tc.expectDataDir != "" && global.DataDir != tc.expectDataDir {
+					t.Errorf("expected DataDir %q, got %q", tc.expectDataDir, global.DataDir)
 				}
-				if tc.expectVerbose && !lastCtx.Global.Verbose {
+				if tc.expectVerbose && !global.Verbose {
 					t.Errorf("expected Verbose true, got false")
 				}
 

@@ -3,37 +3,38 @@ package cli
 import (
 	"context"
 	_ "embed"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/kamichidu/go-flagshim"
 )
 
 //go:embed assets/hariti.txt
 var rootUsage string
 
-func Run(ctx context.Context, args []string) int {
-	cmdMap := make(map[string]Command)
-	for _, cmd := range All() {
-		cmdMap[cmd.Name()] = cmd
-	}
+var ErrNoSubcommand = errors.New("no subcommand provided")
 
-	fs := flag.NewFlagSet("hariti", flag.ContinueOnError)
+type RootCommand struct{}
 
-	global := &GlobalFlags{}
-	global.Register(fs)
+func (c *RootCommand) Name() string {
+	return "hariti"
+}
 
+func (c *RootCommand) RegisterFlags(ctx context.Context, fs *flagshim.FlagSet) context.Context {
 	fs.Usage = func() {
 		//nolint:errcheck // safe: writing help/usage text to stderr is a presentation output; failures do not affect logic or durability
-		fmt.Fprint(os.Stderr, rootUsage)
+		fmt.Fprint(fs.Output(), rootUsage)
 	}
+	global := &GlobalFlags{}
+	global.Register(ctx, fs)
+	return flagshim.ContextWithFlag(ctx, global)
+}
 
-	if err := fs.Parse(args); err != nil {
-		if err == flag.ErrHelp {
-			return 0
-		}
-		return 1
-	}
+func (c *RootCommand) PreRun(ctx context.Context, args []string) (context.Context, error) {
+	global := GetGlobalFlags(ctx)
 
 	// 1. Resolve Config Dir
 	if global.ConfigDir == "" {
@@ -65,38 +66,41 @@ func Run(ctx context.Context, args []string) int {
 	}
 
 	logger := NewCLILogger(global.Verbose)
+	ctx = ContextWithLogger(ctx, logger)
 
-	remaining := fs.Args()
-	if len(remaining) == 0 {
-		fs.Usage()
+	return ctx, nil
+}
+
+func (c *RootCommand) Run(ctx context.Context, args []string) error {
+	stderr := flagshim.MustStderrFromContext(ctx)
+	//nolint:errcheck // safe: writing help/usage text to stderr is a presentation output; failures do not affect logic or durability
+	fmt.Fprint(stderr, rootUsage)
+	return ErrNoSubcommand
+}
+
+func (c *RootCommand) Commands() []flagshim.Command {
+	return All()
+}
+
+func (c *RootCommand) MapError(err error) int {
+	if errors.Is(err, ErrNoSubcommand) {
 		return 1
 	}
-
-	subcmd := remaining[0]
-	subcmdArgs := remaining[1:]
-
-	cliCtx := &Context{
-		Context: ctx,
-		Global:  global,
-		Logger:  logger,
-		Stdout:  os.Stdout,
-		Stderr:  os.Stderr,
+	if errors.Is(err, flag.ErrHelp) {
+		return 0
 	}
-
-	cmd, found := cmdMap[subcmd]
-	if !found {
-		fmt.Fprintf(os.Stderr, "unknown subcommand: %s\n", subcmd)
-		fs.Usage()
-		return 1
-	}
-
-	if err := cmd.Run(cliCtx, subcmdArgs); err != nil {
-		if err == flag.ErrHelp {
+	var parseErr *flagshim.ParseError
+	if errors.As(err, &parseErr) {
+		if errors.Is(parseErr.Err, flag.ErrHelp) {
 			return 0
 		}
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		return 1
+		return 2
 	}
+	return 1
+}
 
-	return 0
+func Run(ctx context.Context, args []string) int {
+	root := &RootCommand{}
+	argv := append([]string{"hariti"}, args...)
+	return flagshim.Run(ctx, os.Stdin, os.Stdout, os.Stderr, root, argv)
 }

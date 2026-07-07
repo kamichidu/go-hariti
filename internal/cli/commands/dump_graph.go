@@ -1,13 +1,14 @@
 package commands
 
 import (
+	"context"
 	_ "embed"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"path/filepath"
 	"strings"
 
+	"github.com/kamichidu/go-flagshim"
 	"github.com/kamichidu/go-hariti/internal/cli"
 	"github.com/kamichidu/go-hariti/internal/config/dsl"
 )
@@ -21,23 +22,24 @@ func (c *DumpGraphCommand) Name() string {
 	return "dump-graph"
 }
 
-func (c *DumpGraphCommand) Run(ctx *cli.Context, args []string) error {
-	fs := flag.NewFlagSet("dump-graph", flag.ContinueOnError)
-	fs.SetOutput(ctx.Stderr)
+func (c *DumpGraphCommand) RegisterFlags(ctx context.Context, fs *flagshim.FlagSet) context.Context {
 	fs.Usage = func() {
 		//nolint:errcheck // safe: writing help/usage text to stderr is a presentation output; failures do not affect logic or durability
-		fmt.Fprint(ctx.Stderr, dumpGraphUsage)
+		fmt.Fprint(fs.Output(), dumpGraphUsage)
 	}
-
-	ctx.Global.Register(fs)
-
-	if err := fs.Parse(args); err != nil {
-		return err
+	if global, ok := flagshim.FlagFromContext[cli.GlobalFlags](ctx); ok {
+		global.Register(ctx, fs)
 	}
+	return ctx
+}
 
-	configFile := ctx.Global.ConfigFile
-	if fs.NArg() > 0 {
-		configFile = fs.Arg(0)
+func (c *DumpGraphCommand) Run(ctx context.Context, args []string) error {
+	global := cli.GetGlobalFlags(ctx)
+	stdout := cli.GetStdout(ctx)
+
+	configFile := global.ConfigFile
+	if len(args) > 0 {
+		configFile = args[0]
 	}
 
 	ext := strings.ToLower(filepath.Ext(configFile))
@@ -50,7 +52,7 @@ func (c *DumpGraphCommand) Run(ctx *cli.Context, args []string) error {
 		return fmt.Errorf("failed to load/convert dsl graph: %w", err)
 	}
 
-	enc := json.NewEncoder(ctx.Stdout)
+	enc := json.NewEncoder(stdout)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(g); err != nil {
 		return fmt.Errorf("failed to encode graph to JSON: %w", err)

@@ -348,12 +348,13 @@ Design decisions must leave enough context for future maintainers to review them
 Hariti's CLI is designed to be lightweight, predictable, and fully independent from any external CLI framework, strictly utilizing Go's standard `flag` and `context` packages.
 
 ### CLI Implementation Constraints:
-1. **Forbidden External CLI Frameworks**: Do not import or depend on external CLI libraries such as `github.com/urfave/cli` or `github.com/spf13/cobra`. Use the standard `flag` package.
+1. **Forbidden External CLI Frameworks**: Do not import or depend on external CLI libraries such as `github.com/urfave/cli` or `github.com/spf13/cobra`. Use github.com/kamichidu/go-flagshim, a compatibility shim built on Go's standard flag package.
 2. **Thin Binary Entrypoint**: `cmd/hariti/main.go` must remain an extremely thin entrypoint that only forwards `os.Args[1:]` to the `cli` package. It must contain no business logic or flag declarations.
 3. **Structured Command Model**: Subcommands must be modeled as clean command structs implementing the `Command` interface, rather than loose, decoupled runner functions.
 4. **No Automated Help Generation**: Do not rely on the built-in `flag` package's automated help text. Help/Usage screens must be embedded and loaded from the following text assets:
    - Root CLI: `internal/cli/assets/hariti.txt`
    - Subcommands: `internal/cli/commands/assets/<command>.txt`
+5. **Context Values for Presentation Layer Only**: Context values may be used inside `internal/cli` only to carry presentation-layer execution state required by `flagshim.Command`, such as parsed `GlobalFlags`, `stdout/stderr`, and CLI logger. This exception must not leak into the root `hariti` package or public domain packages. Core Hariti APIs must continue to receive logger explicitly via `HaritiConfig.Logger`.
 
 ### Global Flag Handling Rules:
 1. **Flag Position Policy**: Global flags (e.g., `-c, --config`, `--config-dir`, `--data-dir`, and `-v, --verbose`) must be accepted and resolved identically whether they are placed before or after the subcommand.

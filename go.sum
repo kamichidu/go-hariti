@@ -2,6 +2,8 @@ github.com/comail/colog v0.0.0-20160416085026-fba8e7b1f46c h1:bzYQ6WpR+t35/y19HU
 github.com/comail/colog v0.0.0-20160416085026-fba8e7b1f46c/go.mod h1:1WwgAwMKQLYG5I2FBhpVx94YTOAuB2W59IZ7REjSE6Y=
 github.com/google/go-cmp v0.6.0 h1:ofyhxvXcZhMsU5ulbFiLKl/XBFqE1GSq7atu8tAmTRI=
 github.com/google/go-cmp v0.6.0/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
+github.com/kamichidu/go-flagshim v0.0.0-20260706215804-c7cec50d3e31 h1:zWowMaUNTbaUbeWaa8FjVhO7RM+LTZnm4PKRPj1+Uhg=
+github.com/kamichidu/go-flagshim v0.0.0-20260706215804-c7cec50d3e31/go.mod h1:oq07MYY4Z6VM3/KZD/jZuX+oXNL0xyyLng9ZA1GBq2U=
 github.com/mna/pigeon v1.2.1 h1:m5FxEbGdQxLaiHF+QurbWUAjmRqd5cstjIPN89svYgg=
 github.com/mna/pigeon v1.2.1/go.mod h1:BUZAoRldTdU7Ac3WYkXy8hzIHfCgj1doJxGjlB+AbLI=
 golang.org/x/mod v0.36.0 h1:JJjpVx6myfUsUdAzZuOSTTmRE0PfZeNWzzvKrP7amb4=

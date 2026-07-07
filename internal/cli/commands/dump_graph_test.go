@@ -6,26 +6,25 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kamichidu/go-flagshim"
 	"github.com/kamichidu/go-hariti/internal/cli"
 	"github.com/kamichidu/go-hariti/internal/cli/commands"
 )
 
 func TestRunDumpGraph_UnsupportedFormat(t *testing.T) {
 	ctx := context.Background()
-	cliCtx := &cli.Context{
-		Context: ctx,
-		Global: &cli.GlobalFlags{
-			ConfigFile: "/tmp/bundles.hariti",
-			ConfigDir:  "/tmp",
-			DataDir:    "/tmp",
-			Verbose:    false,
-		},
-		Stdout: io.Discard,
-		Stderr: io.Discard,
+	global := &cli.GlobalFlags{
+		ConfigFile: "/tmp/bundles.hariti",
+		ConfigDir:  "/tmp",
+		DataDir:    "/tmp",
+		Verbose:    false,
 	}
+	ctx = flagshim.ContextWithFlag(ctx, global)
+	ctx = flagshim.ContextWithStdout(ctx, io.Discard)
+	ctx = flagshim.ContextWithStderr(ctx, io.Discard)
 
 	cmd := &commands.DumpGraphCommand{}
-	err := cmd.Run(cliCtx, []string{"bundles.yml"})
+	err := cmd.Run(ctx, []string{"bundles.yml"})
 	if err == nil {
 		t.Error("expected error for unsupported format, got nil")
 	}

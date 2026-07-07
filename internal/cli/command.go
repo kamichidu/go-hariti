@@ -1,16 +1,15 @@
 package cli
 
-type Command interface {
-	Name() string
-	Run(ctx *Context, args []string) error
-}
+import (
+	"github.com/kamichidu/go-flagshim"
+)
 
-var registry []Command
+var registry []flagshim.Command
 
-func Register(cmd Command) {
+func Register(cmd flagshim.Command) {
 	registry = append(registry, cmd)
 }
 
-func All() []Command {
+func All() []flagshim.Command {
 	return registry
 }
