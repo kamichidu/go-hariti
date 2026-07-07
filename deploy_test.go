@@ -194,3 +194,82 @@ func TestHariti_Deploy_Success(t *testing.T) {
 		t.Errorf("expected packadd.vim to contain: \n%s\nGot:\n%s", expectedRemoteWrap, packaddStr)
 	}
 }
+
+func TestHariti_Deploy_Failure_BuildStep(t *testing.T) {
+	// Create a temporary directory for the entire test
+	tmpDir := t.TempDir()
+
+	// Set XDG_DATA_HOME for isolation
+	xdgHome := filepath.Join(tmpDir, "xdg_home")
+	_ = os.Setenv("XDG_DATA_HOME", xdgHome)
+	defer func() {
+		_ = os.Unsetenv("XDG_DATA_HOME")
+	}()
+
+	// 1. Setup mock remote repository on the local filesystem
+	remoteRepoDir := filepath.Join(tmpDir, "remote_repo")
+	if err := os.MkdirAll(remoteRepoDir, 0755); err != nil {
+		t.Fatalf("failed to create mock remote dir: %v", err)
+	}
+
+	_ = runGitCmdInDir(t, remoteRepoDir, "init")
+	_ = runGitCmdInDir(t, remoteRepoDir, "config", "user.email", "test@hariti.io")
+	_ = runGitCmdInDir(t, remoteRepoDir, "config", "user.name", "Test Hariti")
+	_ = runGitCmdInDir(t, remoteRepoDir, "commit", "--allow-empty", "-m", "initial commit")
+
+	remoteURL, err := url.Parse("file://" + filepath.ToSlash(remoteRepoDir))
+	if err != nil {
+		t.Fatalf("failed to parse remote URL: %v", err)
+	}
+
+	g := &graph.Graph{
+		Bundles: []graph.Bundle{
+			{
+				ID: "my/remote-plugin",
+				Source: graph.Source{
+					Type: graph.SourceTypeRemote,
+					URL:  remoteURL,
+					Path: filepath.Join(xdgHome, "hariti", "repos", url.QueryEscape("my/remote-plugin")),
+				},
+				Build: []graph.BuildStep{
+					{
+						OS:  "all",
+						Cmd: "exit 1",
+					},
+				},
+			},
+		},
+	}
+
+	// Initialize Hariti
+	cfg := &hariti.HaritiConfig{
+		Paths: hariti.Paths{
+			ConfigFile: filepath.Join(tmpDir, "hariti home with spaces", "bundles.hariti"),
+			ConfigDir:  filepath.Join(tmpDir, "hariti home with spaces"),
+			DataDir:    filepath.Join(xdgHome, "hariti"),
+		},
+		Writer:    io.Discard,
+		ErrWriter: io.Discard,
+	}
+	har := hariti.NewHariti(cfg)
+
+	ctx := context.Background()
+	ctx = vcs.WithWriter(ctx, io.Discard)
+	ctx = vcs.WithErrWriter(ctx, io.Discard)
+
+	// Step 1: Sync first to retrieve and write hariti.lock
+	_, err = har.Sync(ctx, g, hariti.SyncOptions{})
+	if err != nil {
+		t.Fatalf("Sync failed: %v", err)
+	}
+
+	// Step 2: Run Deploy (Generation) which should fail due to build step failure
+	_, err = har.Deploy(ctx, g, hariti.DeployOptions{})
+	if err == nil {
+		t.Fatal("expected Deploy to fail due to build step exit 1, but it succeeded")
+	}
+
+	if !strings.Contains(err.Error(), "failed to run build step for bundle my/remote-plugin on all") {
+		t.Errorf("expected error message to contain build step failure detail, got: %v", err)
+	}
+}

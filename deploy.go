@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -120,9 +119,11 @@ func (h *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptions)
 					buildCmd = exec.Command("sh", "-c", step.Cmd)
 				}
 				buildCmd.Dir = destDir
-				buildCmd.Stdout = io.Discard
-				buildCmd.Stderr = io.Discard
-				_ = buildCmd.Run()
+				buildCmd.Stdout = h.config.Writer
+				buildCmd.Stderr = h.config.ErrWriter
+				if err := buildCmd.Run(); err != nil {
+					return "", fmt.Errorf("failed to run build step for bundle %s on %s: %w", bundle.ID, step.OS, err)
+				}
 			}
 		}
 	}
