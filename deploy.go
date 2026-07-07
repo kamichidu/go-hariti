@@ -140,21 +140,44 @@ func (h *Hariti) Deploy(ctx context.Context, g *graph.Graph, opts DeployOptions)
 
 	// Generate packadd.vim inside the generation dir
 	var packaddContent strings.Builder
+	packaddContent.WriteString(`function! s:add_rtp(path, after_path) abort
+  let l:rtps = split(&runtimepath, ',')
+  let l:idx = -1
+  for l:i in range(len(l:rtps))
+    if fnamemodify(l:rtps[l:i], ':t') ==# 'after'
+      let l:idx = l:i
+      break
+    endif
+  endfor
+  if l:idx >= 0
+    call insert(l:rtps, a:path, l:idx)
+  else
+    call add(l:rtps, a:path)
+  endif
+  if a:after_path !=# ''
+    call add(l:rtps, a:after_path)
+  endif
+  let &runtimepath = join(l:rtps, ',')
+endfunction
+
+`)
+
 	for _, bundle := range rg.bundles {
 		if bundle.Source.Type == graph.SourceTypeLocal {
 			localPath := bundle.Source.Path
 			if bundle.EnableIf != "" {
-				fmt.Fprintf(&packaddContent, "if %s\n  set runtimepath+=%s\n", bundle.EnableIf, localPath)
 				afterPath := filepath.Join(localPath, "after")
 				if _, err := os.Stat(afterPath); err == nil {
-					fmt.Fprintf(&packaddContent, "  set runtimepath+=%s\n", afterPath)
+					fmt.Fprintf(&packaddContent, "if %s\n  call s:add_rtp(%q, %q)\nendif\n", bundle.EnableIf, filepath.ToSlash(localPath), filepath.ToSlash(afterPath))
+				} else {
+					fmt.Fprintf(&packaddContent, "if %s\n  call s:add_rtp(%q, '')\nendif\n", bundle.EnableIf, filepath.ToSlash(localPath))
 				}
-				packaddContent.WriteString("endif\n")
 			} else {
-				fmt.Fprintf(&packaddContent, "set runtimepath+=%s\n", localPath)
 				afterPath := filepath.Join(localPath, "after")
 				if _, err := os.Stat(afterPath); err == nil {
-					fmt.Fprintf(&packaddContent, "set runtimepath+=%s\n", afterPath)
+					fmt.Fprintf(&packaddContent, "call s:add_rtp(%q, %q)\n", filepath.ToSlash(localPath), filepath.ToSlash(afterPath))
+				} else {
+					fmt.Fprintf(&packaddContent, "call s:add_rtp(%q, '')\n", filepath.ToSlash(localPath))
 				}
 			}
 		} else {

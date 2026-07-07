@@ -1,7 +1,7 @@
 <HOME>/.vim
-<VIMPARENT>/vimfiles
+<VIM_BASELINE_ENTRY>
 <VIMRUNTIME>
-<VIMPARENT>/vimfiles/after
-<HOME>/.vim/after
 <TESTDIR>/simple/plugins/dep-plugin
 <TESTDIR>/simple/plugins/local-plugin
+<VIM_BASELINE_ENTRY>
+<HOME>/.vim/after

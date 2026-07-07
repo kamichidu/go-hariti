@@ -45,21 +45,26 @@ func normalizeRuntimepath(t *testing.T, raw string, vars normalizeVars) []string
 	testDir := filepath.ToSlash(filepath.Clean(vars.TestDir))
 	homeDir := filepath.ToSlash(filepath.Clean(vars.HomeDir))
 	vimRuntime := filepath.ToSlash(filepath.Clean(vars.VimRuntime))
-	vimParent := filepath.ToSlash(filepath.Clean(filepath.Dir(vimRuntime)))
 
 	parts := strings.Split(raw, ",")
 	var result []string
 	for _, p := range parts {
 		cleaned := filepath.ToSlash(filepath.Clean(p))
 
+		isHaritiPath := false
 		if strings.HasPrefix(cleaned, testDir) {
 			cleaned = "<TESTDIR>" + cleaned[len(testDir):]
+			isHaritiPath = true
 		} else if strings.HasPrefix(cleaned, vimRuntime) {
 			cleaned = "<VIMRUNTIME>" + cleaned[len(vimRuntime):]
-		} else if strings.HasPrefix(cleaned, vimParent) {
-			cleaned = "<VIMPARENT>" + cleaned[len(vimParent):]
+			isHaritiPath = true
 		} else if strings.HasPrefix(cleaned, homeDir) {
 			cleaned = "<HOME>" + cleaned[len(homeDir):]
+			isHaritiPath = true
+		}
+
+		if !isHaritiPath {
+			cleaned = "<VIM_BASELINE_ENTRY>"
 		}
 
 		result = append(result, cleaned)
@@ -153,7 +158,9 @@ func TestE2E_VimRuntimepathProjection(t *testing.T) {
 
 	scriptContent := fmt.Sprintf(`set nomore
 set packpath+=%s
+let before_runtimepath = &runtimepath
 source %s/packadd.vim
+let after_runtimepath = &runtimepath
 try
   help local-plugin
   let help_ok = "SUCCESS"
@@ -161,7 +168,8 @@ catch
   let help_ok = "FAILURE: " . v:exception
 endtry
 let result = {
-\ 'runtimepath': &runtimepath,
+\ 'before_runtimepath': before_runtimepath,
+\ 'runtimepath': after_runtimepath,
 \ 'vimruntime': $VIMRUNTIME,
 \ 'help': help_ok,
 \}
@@ -187,9 +195,10 @@ qa!
 	}
 
 	type vimResult struct {
-		Runtimepath string `json:"runtimepath"`
-		Vimruntime  string `json:"vimruntime"`
-		Help        string `json:"help"`
+		BeforeRuntimepath string `json:"before_runtimepath"`
+		Runtimepath       string `json:"runtimepath"`
+		Vimruntime        string `json:"vimruntime"`
+		Help              string `json:"help"`
 	}
 
 	var res vimResult
@@ -234,31 +243,62 @@ qa!
 		VimRuntime: vimRuntime,
 	}
 
-	gotRTP := normalizeRuntimepath(t, rawRuntimepath, vars)
+	rawBeforeEntries := strings.Split(res.BeforeRuntimepath, ",")
+	rawAfterEntries := strings.Split(res.Runtimepath, ",")
 
-	// Explicit contains assertion for the generated plugin paths
-	depPluginFound := false
-	localPluginFound := false
-	expectedDepPath := "<TESTDIR>/simple/plugins/dep-plugin"
-	expectedLocalPath := "<TESTDIR>/simple/plugins/local-plugin"
-
-	for _, entry := range gotRTP {
-		if entry == expectedDepPath {
-			depPluginFound = true
-		}
-		if entry == expectedLocalPath {
-			localPluginFound = true
+	// Find the first after entry from the baseline inside the raw before runtimepath
+	firstRawBeforeAfterEntry := ""
+	for _, entry := range rawBeforeEntries {
+		cleaned := filepath.Clean(entry)
+		if filepath.Base(cleaned) == "after" {
+			firstRawBeforeAfterEntry = entry
+			break
 		}
 	}
 
-	if !depPluginFound {
-		t.Errorf("expected dep-plugin path %q to appear in runtimepath; actual runtimepaths: %v", expectedDepPath, gotRTP)
-	}
-	if !localPluginFound {
-		t.Errorf("expected local-plugin path %q to appear in runtimepath; actual runtimepaths: %v", expectedLocalPath, gotRTP)
+	depRawIdx := -1
+	localRawIdx := -1
+	firstRawAfterInAfterRTPIdx := -1
+
+	for i, entry := range rawAfterEntries {
+		cleaned := filepath.ToSlash(filepath.Clean(entry))
+		if strings.Contains(cleaned, "simple/plugins/dep-plugin") {
+			depRawIdx = i
+		}
+		if strings.Contains(cleaned, "simple/plugins/local-plugin") {
+			localRawIdx = i
+		}
+		if firstRawBeforeAfterEntry != "" && filepath.Clean(entry) == filepath.Clean(firstRawBeforeAfterEntry) {
+			firstRawAfterInAfterRTPIdx = i
+		}
 	}
 
-	// Load expected snapshot
+	if depRawIdx == -1 {
+		t.Errorf("expected dep-plugin to appear in raw after runtimepath; actual raw entries: %v", rawAfterEntries)
+	}
+	if localRawIdx == -1 {
+		t.Errorf("expected local-plugin to appear in raw after runtimepath; actual raw entries: %v", rawAfterEntries)
+	}
+
+	// dep-plugin must appear before local-plugin in the runtimepath
+	if depRawIdx >= 0 && localRawIdx >= 0 && depRawIdx >= localRawIdx {
+		t.Errorf("expected dep-plugin (%d) to appear before local-plugin (%d)", depRawIdx, localRawIdx)
+	}
+
+	if firstRawAfterInAfterRTPIdx >= 0 {
+		if depRawIdx >= firstRawAfterInAfterRTPIdx {
+			t.Errorf("expected dep-plugin (%d) to be inserted before the first baseline after directory (%d)", depRawIdx, firstRawAfterInAfterRTPIdx)
+		}
+		if localRawIdx >= firstRawAfterInAfterRTPIdx {
+			t.Errorf("expected local-plugin (%d) to be inserted before the first baseline after directory (%d)", localRawIdx, firstRawAfterInAfterRTPIdx)
+		}
+	} else {
+		t.Logf("no baseline after directories found in rawAfterEntries: %v", rawAfterEntries)
+	}
+
+	gotRTP := normalizeRuntimepath(t, res.Runtimepath, vars)
+
+	// Load expected snapshot for optional baseline reference
 	snapshotPath := filepath.Join(fixtureSrcAbs, "expected", "runtimepath.snap")
 
 	if os.Getenv("UPDATE_SNAPSHOT") != "" {

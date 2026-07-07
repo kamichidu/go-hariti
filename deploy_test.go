@@ -184,7 +184,7 @@ func TestHariti_Deploy_Success(t *testing.T) {
 	packaddStr := string(packaddBytes)
 
 	// Check un-braced enable_if wraps for local source
-	expectedLocalWrap := "if has('python3')\n  set runtimepath+=" + localPluginDir + "\nendif"
+	expectedLocalWrap := "if has('python3')\n  call s:add_rtp(\"" + filepath.ToSlash(localPluginDir) + "\", '')\nendif"
 	if !strings.Contains(packaddStr, expectedLocalWrap) {
 		t.Errorf("expected packadd.vim to contain: \n%s\nGot:\n%s", expectedLocalWrap, packaddStr)
 	}
