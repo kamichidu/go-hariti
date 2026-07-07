@@ -601,3 +601,103 @@ func TestHariti_Sync_SubmoduleUpdate(t *testing.T) {
 		t.Errorf("expected submodule HEAD revision to point to %s, got %s", subRev2, subHeadRev)
 	}
 }
+
+func TestHariti_Sync_Parallelism(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	xdgHome := filepath.Join(tmpDir, "xdg_home")
+	_ = os.Setenv("XDG_DATA_HOME", xdgHome)
+	defer func() {
+		_ = os.Unsetenv("XDG_DATA_HOME")
+	}()
+
+	// Setup 3 mock remote repositories
+	var remoteURLs []*url.URL
+	var revisions []string
+	for i := 1; i <= 3; i++ {
+		dirName := fmt.Sprintf("remote_repo_%d", i)
+		remoteRepoDir := filepath.Join(tmpDir, dirName)
+		if err := os.MkdirAll(remoteRepoDir, 0755); err != nil {
+			t.Fatalf("failed to create mock remote dir: %v", err)
+		}
+
+		_ = runGitCmdInDir(t, remoteRepoDir, "init")
+		_ = runGitCmdInDir(t, remoteRepoDir, "config", "user.email", "test@hariti.io")
+		_ = runGitCmdInDir(t, remoteRepoDir, "config", "user.name", "Test Hariti")
+		_ = runGitCmdInDir(t, remoteRepoDir, "commit", "--allow-empty", "-m", fmt.Sprintf("commit %d", i))
+		rev := runGitCmdInDir(t, remoteRepoDir, "rev-parse", "HEAD")
+		revisions = append(revisions, rev)
+
+		remoteURL, err := url.Parse("file://" + filepath.ToSlash(remoteRepoDir))
+		if err != nil {
+			t.Fatalf("failed to parse remote URL: %v", err)
+		}
+		remoteURLs = append(remoteURLs, remoteURL)
+	}
+
+	g := &graph.Graph{
+		Bundles: []graph.Bundle{
+			{
+				ID: "plugin-1",
+				Source: graph.Source{
+					Type: graph.SourceTypeRemote,
+					URL:  remoteURLs[0],
+					Path: filepath.Join(xdgHome, "hariti", "repos", url.QueryEscape("plugin-1")),
+				},
+			},
+			{
+				ID: "plugin-2",
+				Source: graph.Source{
+					Type: graph.SourceTypeRemote,
+					URL:  remoteURLs[1],
+					Path: filepath.Join(xdgHome, "hariti", "repos", url.QueryEscape("plugin-2")),
+				},
+			},
+			{
+				ID: "plugin-3",
+				Source: graph.Source{
+					Type: graph.SourceTypeRemote,
+					URL:  remoteURLs[2],
+					Path: filepath.Join(xdgHome, "hariti", "repos", url.QueryEscape("plugin-3")),
+				},
+			},
+		},
+	}
+
+	// Initialize Hariti
+	cfg := &hariti.HaritiConfig{
+		Paths: hariti.Paths{
+			ConfigFile: filepath.Join(tmpDir, "hariti_home", "bundles.hariti"),
+			ConfigDir:  filepath.Join(tmpDir, "hariti_home"),
+			DataDir:    filepath.Join(xdgHome, "hariti"),
+		},
+		Writer:    io.Discard,
+		ErrWriter: io.Discard,
+	}
+	har := hariti.NewHariti(cfg)
+
+	ctx := context.Background()
+	ctx = vcs.WithWriter(ctx, io.Discard)
+	ctx = vcs.WithErrWriter(ctx, io.Discard)
+
+	// Run Sync with a custom Parallelism value of 2
+	facts, err := har.Sync(ctx, g, hariti.SyncOptions{Parallelism: 2})
+	if err != nil {
+		t.Fatalf("Sync failed with Parallelism 2: %v", err)
+	}
+
+	if len(facts) != 3 {
+		t.Fatalf("expected 3 facts, got %d", len(facts))
+	}
+
+	// Verify deterministic result ordering (matching graph order)
+	expectedIDs := []string{"plugin-1", "plugin-2", "plugin-3"}
+	for i, fact := range facts {
+		if fact.BundleID != expectedIDs[i] {
+			t.Errorf("at index %d, expected BundleID %q, got %q", i, expectedIDs[i], fact.BundleID)
+		}
+		if fact.Revision != revisions[i] {
+			t.Errorf("at index %d, expected Revision %q, got %q", i, revisions[i], fact.Revision)
+		}
+	}
+}

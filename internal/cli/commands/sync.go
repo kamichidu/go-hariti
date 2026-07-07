@@ -14,7 +14,9 @@ import (
 //go:embed assets/sync.txt
 var syncUsage string
 
-type SyncCommand struct{}
+type SyncCommand struct {
+	parallelism int
+}
 
 func (c *SyncCommand) Name() string {
 	return "sync"
@@ -28,6 +30,8 @@ func (c *SyncCommand) RegisterFlags(ctx context.Context, fs *flagshim.FlagSet) c
 	if global, ok := flagshim.FlagFromContext[cli.GlobalFlags](ctx); ok {
 		global.Register(ctx, fs)
 	}
+	fs.IntVar(&c.parallelism, "parallelism", 0, "")
+	fs.Alias("parallelism", "p")
 	return ctx
 }
 
@@ -59,7 +63,9 @@ func (c *SyncCommand) Run(ctx context.Context, args []string) error {
 	}
 	har := hariti.NewHariti(cfg)
 
-	_, err = har.Sync(ctx, g, hariti.SyncOptions{})
+	_, err = har.Sync(ctx, g, hariti.SyncOptions{
+		Parallelism: c.parallelism,
+	})
 	return err
 }
 

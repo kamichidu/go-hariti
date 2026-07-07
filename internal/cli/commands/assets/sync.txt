@@ -10,4 +10,6 @@ Options:
                             (default: $XDG_DATA_HOME/hariti)
   -v, --verbose             Enable verbose output
                             (default: false)
+  -p, --parallelism <num>   Limit of concurrent sync workers
+                            (default: 8)
   -h, --help                Show this help

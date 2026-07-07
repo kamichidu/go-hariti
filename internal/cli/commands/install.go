@@ -14,7 +14,9 @@ import (
 //go:embed assets/install.txt
 var installUsage string
 
-type InstallCommand struct{}
+type InstallCommand struct {
+	parallelism int
+}
 
 func (c *InstallCommand) Name() string {
 	return "install"
@@ -28,6 +30,8 @@ func (c *InstallCommand) RegisterFlags(ctx context.Context, fs *flagshim.FlagSet
 	if global, ok := flagshim.FlagFromContext[cli.GlobalFlags](ctx); ok {
 		global.Register(ctx, fs)
 	}
+	fs.IntVar(&c.parallelism, "parallelism", 0, "")
+	fs.Alias("parallelism", "p")
 	return ctx
 }
 
@@ -60,7 +64,9 @@ func (c *InstallCommand) Run(ctx context.Context, args []string) error {
 	har := hariti.NewHariti(cfg)
 
 	return har.Install(ctx, g, hariti.InstallOptions{
-		Sync:   hariti.SyncOptions{},
+		Sync: hariti.SyncOptions{
+			Parallelism: c.parallelism,
+		},
 		Deploy: hariti.DeployOptions{},
 	})
 }
