@@ -67,8 +67,11 @@ func (c *SyncCommand) Run(ctx context.Context, args []string) error {
 	}
 	har := hariti.NewHariti(cfg)
 
+	reporter := cli.NewProgressReporter(stdout)
+
 	_, err = har.Sync(ctx, g, hariti.SyncOptions{
 		Parallelism: flags.Parallelism,
+		OnProgress:  reporter.OnProgress,
 	})
 	return err
 }

@@ -67,9 +67,12 @@ func (c *InstallCommand) Run(ctx context.Context, args []string) error {
 	}
 	har := hariti.NewHariti(cfg)
 
+	reporter := cli.NewProgressReporter(stdout)
+
 	return har.Install(ctx, g, hariti.InstallOptions{
 		Sync: hariti.SyncOptions{
 			Parallelism: flags.Parallelism,
+			OnProgress:  reporter.OnProgress,
 		},
 		Deploy: hariti.DeployOptions{},
 	})

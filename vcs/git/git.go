@@ -47,12 +47,12 @@ func (g *Git) Sync(c context.Context, bundle graph.Bundle) error {
 	}
 
 	if log != nil {
-		log.Infof("Git sync started for bundle %s with URL %s in local path %q", bundle.ID, urlStr, localPath)
+		log.Debugf("Git sync started for bundle %s with URL %s in local path %q", bundle.ID, urlStr, localPath)
 	}
 
 	if info, err := os.Stat(localPath); err != nil {
 		if log != nil {
-			log.Infof("Cloning %s to %s\n", urlStr, localPath)
+			log.Debugf("Cloning %s to %s\n", urlStr, localPath)
 		}
 		cmd := exec.Command("git", "clone", "--recursive", urlStr, localPath)
 		cmd.Stdout = out
@@ -62,12 +62,12 @@ func (g *Git) Sync(c context.Context, bundle graph.Bundle) error {
 		}
 	} else if info.IsDir() {
 		if log != nil {
-			log.Infof("Fetching and hard resetting in %s", localPath)
+			log.Debugf("Fetching and hard resetting in %s", localPath)
 		}
 
 		// 1. Fetch all
 		if log != nil {
-			log.Infof("Executing git fetch --all --prune in %s", localPath)
+			log.Debugf("Executing git fetch --all --prune in %s", localPath)
 		}
 		fetchCmd := exec.Command("git", "fetch", "--all", "--prune")
 		fetchCmd.Dir = localPath
@@ -79,7 +79,7 @@ func (g *Git) Sync(c context.Context, bundle graph.Bundle) error {
 
 		// 2. Resolve tracked upstream ref
 		if log != nil {
-			log.Infof("Resolving tracked upstream ref in %s", localPath)
+			log.Debugf("Resolving tracked upstream ref in %s", localPath)
 		}
 		revParseCmd := exec.Command("git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
 		revParseCmd.Dir = localPath
@@ -96,7 +96,7 @@ func (g *Git) Sync(c context.Context, bundle graph.Bundle) error {
 
 		// 3. Hard reset to resolved upstream ref
 		if log != nil {
-			log.Infof("Executing git reset --hard %s in %s", upstream, localPath)
+			log.Debugf("Executing git reset --hard %s in %s", upstream, localPath)
 		}
 		resetCmd := exec.Command("git", "reset", "--hard", upstream)
 		resetCmd.Dir = localPath
@@ -110,7 +110,7 @@ func (g *Git) Sync(c context.Context, bundle graph.Bundle) error {
 		gitmodules := filepath.Join(localPath, ".gitmodules")
 		if _, err := os.Stat(gitmodules); err == nil {
 			if log != nil {
-				log.Infof("Updating submodules in %s", localPath)
+				log.Debugf("Updating submodules in %s", localPath)
 			}
 			submoduleCmd := exec.Command("git", "submodule", "update", "--init", "--recursive")
 			submoduleCmd.Dir = localPath
@@ -189,7 +189,7 @@ func (g *Git) Archive(c context.Context, bundle graph.Bundle, revision string, d
 	localPath := bundle.Source.Path
 
 	if log != nil {
-		log.Infof("Git archive started for bundle %s with revision %s in local path %q, destDir %q", bundle.ID, revision, localPath, destDir)
+		log.Debugf("Git archive started for bundle %s with revision %s in local path %q, destDir %q", bundle.ID, revision, localPath, destDir)
 	}
 
 	cmd := exec.Command("git", "archive", "--format=tar", revision)

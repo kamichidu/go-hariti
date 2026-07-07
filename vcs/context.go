@@ -16,11 +16,13 @@ const (
 
 type Logger interface {
 	Infof(format string, args ...interface{})
+	Debugf(format string, args ...interface{})
 }
 
 type nopLogger struct{}
 
-func (nopLogger) Infof(format string, args ...interface{}) {}
+func (nopLogger) Infof(format string, args ...interface{})  {}
+func (nopLogger) Debugf(format string, args ...interface{}) {}
 
 func WithWriter(parent context.Context, w io.Writer) context.Context {
 	return context.WithValue(parent, writerContextKey, w)
