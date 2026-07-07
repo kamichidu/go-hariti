@@ -14,9 +14,11 @@ import (
 //go:embed assets/install.txt
 var installUsage string
 
-type InstallCommand struct {
-	parallelism int
+type InstallFlags struct {
+	Parallelism int
 }
+
+type InstallCommand struct{}
 
 func (c *InstallCommand) Name() string {
 	return "install"
@@ -30,9 +32,10 @@ func (c *InstallCommand) RegisterFlags(ctx context.Context, fs *flagshim.FlagSet
 	if global, ok := flagshim.FlagFromContext[cli.GlobalFlags](ctx); ok {
 		global.Register(ctx, fs)
 	}
-	fs.IntVar(&c.parallelism, "parallelism", 0, "")
+	flags := &InstallFlags{}
+	fs.IntVar(&flags.Parallelism, "parallelism", 0, "")
 	fs.Alias("parallelism", "p")
-	return ctx
+	return flagshim.ContextWithFlag(ctx, flags)
 }
 
 func (c *InstallCommand) Run(ctx context.Context, args []string) error {
@@ -40,6 +43,7 @@ func (c *InstallCommand) Run(ctx context.Context, args []string) error {
 	stdout := cli.GetStdout(ctx)
 	stderr := cli.GetStderr(ctx)
 	logger := cli.GetLogger(ctx)
+	flags := flagshim.MustFlagFromContext[InstallFlags](ctx)
 
 	configFile := global.ConfigFile
 	if len(args) > 0 {
@@ -65,7 +69,7 @@ func (c *InstallCommand) Run(ctx context.Context, args []string) error {
 
 	return har.Install(ctx, g, hariti.InstallOptions{
 		Sync: hariti.SyncOptions{
-			Parallelism: c.parallelism,
+			Parallelism: flags.Parallelism,
 		},
 		Deploy: hariti.DeployOptions{},
 	})

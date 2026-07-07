@@ -11,5 +11,5 @@ import (
 
 func main() {
 	ctx := context.Background()
-	os.Exit(cli.Run(ctx, os.Args[1:]))
+	os.Exit(cli.Run(ctx, os.Args))
 }

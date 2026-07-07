@@ -35,15 +35,16 @@ func TestSyncCommand_Flags(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cmd := &SyncCommand{}
 			fs := flagshim.NewFlagSet(cmd.Name(), flag.ContinueOnError)
-			_ = cmd.RegisterFlags(context.Background(), fs)
+			ctx := cmd.RegisterFlags(context.Background(), fs)
 
 			err := fs.Parse(tc.args)
 			if err != nil {
 				t.Fatalf("failed to parse flags: %v", err)
 			}
 
-			if cmd.parallelism != tc.expectedVal {
-				t.Errorf("expected parallelism to be %d, got %d", tc.expectedVal, cmd.parallelism)
+			flags := flagshim.MustFlagFromContext[SyncFlags](ctx)
+			if flags.Parallelism != tc.expectedVal {
+				t.Errorf("expected parallelism to be %d, got %d", tc.expectedVal, flags.Parallelism)
 			}
 		})
 	}

@@ -97,7 +97,8 @@ func TestRun_GlobalFlags(t *testing.T) {
 			lastCtx = nil
 			lastArgs = nil
 
-			code := Run(context.Background(), tc.args)
+			argv := append([]string{"hariti"}, tc.args...)
+			code := Run(context.Background(), argv)
 			if code != tc.expectedCode {
 				t.Fatalf("expected code %d, got %d", tc.expectedCode, code)
 			}

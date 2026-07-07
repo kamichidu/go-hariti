@@ -99,8 +99,7 @@ func (c *RootCommand) MapError(err error) int {
 	return 1
 }
 
-func Run(ctx context.Context, args []string) int {
+func Run(ctx context.Context, argv []string) int {
 	root := &RootCommand{}
-	argv := append([]string{"hariti"}, args...)
 	return flagshim.Run(ctx, os.Stdin, os.Stdout, os.Stderr, root, argv)
 }
