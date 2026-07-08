@@ -244,59 +244,59 @@ qa!
 	}
 
 	rawBeforeEntries := strings.Split(res.BeforeRuntimepath, ",")
-	rawAfterEntries := strings.Split(res.Runtimepath, ",")
 
 	// Find the first after entry from the baseline inside the raw before runtimepath
-	firstRawBeforeAfterEntry := ""
-	for _, entry := range rawBeforeEntries {
+	firstRawBeforeAfterIdx := -1
+	for i, entry := range rawBeforeEntries {
 		cleaned := filepath.Clean(entry)
 		if filepath.Base(cleaned) == "after" {
-			firstRawBeforeAfterEntry = entry
+			firstRawBeforeAfterIdx = i
 			break
 		}
 	}
 
-	depRawIdx := -1
-	localRawIdx := -1
-	firstRawAfterInAfterRTPIdx := -1
+	// Dynamic plugin paths
+	depPluginPath := filepath.Join(tmpDir, "simple", "plugins", "dep-plugin")
+	localPluginPath := filepath.Join(tmpDir, "simple", "plugins", "local-plugin")
+	depAfterPath := filepath.Join(depPluginPath, "after")
+	localAfterPath := filepath.Join(localPluginPath, "after")
 
-	for i, entry := range rawAfterEntries {
-		cleaned := filepath.ToSlash(filepath.Clean(entry))
-		if strings.Contains(cleaned, "simple/plugins/dep-plugin") {
-			depRawIdx = i
-		}
-		if strings.Contains(cleaned, "simple/plugins/local-plugin") {
-			localRawIdx = i
-		}
-		if firstRawBeforeAfterEntry != "" && filepath.Clean(entry) == filepath.Clean(firstRawBeforeAfterEntry) {
-			firstRawAfterInAfterRTPIdx = i
-		}
-	}
+	normalBundlePaths := []string{depPluginPath, localPluginPath}
+	bundleAfterPaths := []string{depAfterPath, localAfterPath}
 
-	if depRawIdx == -1 {
-		t.Errorf("expected dep-plugin to appear in raw after runtimepath; actual raw entries: %v", rawAfterEntries)
-	}
-	if localRawIdx == -1 {
-		t.Errorf("expected local-plugin to appear in raw after runtimepath; actual raw entries: %v", rawAfterEntries)
-	}
-
-	// dep-plugin must appear before local-plugin in the runtimepath
-	if depRawIdx >= 0 && localRawIdx >= 0 && depRawIdx >= localRawIdx {
-		t.Errorf("expected dep-plugin (%d) to appear before local-plugin (%d)", depRawIdx, localRawIdx)
-	}
-
-	if firstRawAfterInAfterRTPIdx >= 0 {
-		if depRawIdx >= firstRawAfterInAfterRTPIdx {
-			t.Errorf("expected dep-plugin (%d) to be inserted before the first baseline after directory (%d)", depRawIdx, firstRawAfterInAfterRTPIdx)
-		}
-		if localRawIdx >= firstRawAfterInAfterRTPIdx {
-			t.Errorf("expected local-plugin (%d) to be inserted before the first baseline after directory (%d)", localRawIdx, firstRawAfterInAfterRTPIdx)
-		}
+	var expectedRawEntries []string
+	if firstRawBeforeAfterIdx >= 0 {
+		expectedRawEntries = append(expectedRawEntries, rawBeforeEntries[:firstRawBeforeAfterIdx]...)
+		expectedRawEntries = append(expectedRawEntries, normalBundlePaths...)
+		expectedRawEntries = append(expectedRawEntries, rawBeforeEntries[firstRawBeforeAfterIdx:]...)
+		expectedRawEntries = append(expectedRawEntries, bundleAfterPaths...)
 	} else {
-		t.Logf("no baseline after directories found in rawAfterEntries: %v", rawAfterEntries)
+		expectedRawEntries = append(expectedRawEntries, rawBeforeEntries...)
+		expectedRawEntries = append(expectedRawEntries, normalBundlePaths...)
+		expectedRawEntries = append(expectedRawEntries, bundleAfterPaths...)
 	}
 
+	// Normalize both actual and expected to eliminate environment differences
 	gotRTP := normalizeRuntimepath(t, res.Runtimepath, vars)
+	expectedRTP := normalizeRuntimepath(t, strings.Join(expectedRawEntries, ","), vars)
+
+	// Compare actual with expected projection model
+	mismatch := false
+	if len(gotRTP) != len(expectedRTP) {
+		mismatch = true
+	} else {
+		for i := range gotRTP {
+			if gotRTP[i] != expectedRTP[i] {
+				mismatch = true
+				break
+			}
+		}
+	}
+
+	if mismatch {
+		t.Errorf("observed runtimepath projection does not match expected model!\nGot:\n%s\nExpected:\n%s",
+			strings.Join(gotRTP, "\n"), strings.Join(expectedRTP, "\n"))
+	}
 
 	// Load expected snapshot for optional baseline reference
 	snapshotPath := filepath.Join(fixtureSrcAbs, "expected", "runtimepath.snap")
@@ -315,28 +315,28 @@ qa!
 		t.Fatalf("failed to read snapshot file: %v", err)
 	}
 
-	var expectedRTP []string
+	var snapRTP []string
 	for _, line := range strings.Split(string(snapBytes), "\n") {
 		if trimmed := strings.TrimSpace(line); trimmed != "" {
-			expectedRTP = append(expectedRTP, trimmed)
+			snapRTP = append(snapRTP, trimmed)
 		}
 	}
 
-	// Compare with snapshot
-	mismatch := false
-	if len(gotRTP) != len(expectedRTP) {
-		mismatch = true
+	// Compare with snapshot as a loose regression reference (not failing the test on system deviations)
+	snapMismatch := false
+	if len(gotRTP) != len(snapRTP) {
+		snapMismatch = true
 	} else {
 		for i := range gotRTP {
-			if gotRTP[i] != expectedRTP[i] {
-				mismatch = true
+			if gotRTP[i] != snapRTP[i] {
+				snapMismatch = true
 				break
 			}
 		}
 	}
 
-	if mismatch {
-		t.Errorf("observed runtimepath does not match snapshot %s\nGot:\n%s\nExpected:\n%s",
-			snapshotPath, strings.Join(gotRTP, "\n"), strings.Join(expectedRTP, "\n"))
+	if snapMismatch {
+		t.Logf("Note: observed runtimepath does not match snapshot reference %s (mismatch is safe if system Vim baseline shifted)\nGot:\n%s\nExpected Snap:\n%s",
+			snapshotPath, strings.Join(gotRTP, "\n"), strings.Join(snapRTP, "\n"))
 	}
 }
